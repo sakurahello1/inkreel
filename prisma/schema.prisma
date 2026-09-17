@@ -1,0 +1,359 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id             String      @id @default(cuid())
+  title          String
+  genre          String      @default("")
+  orientation    String      @default("9:16")
+  targetEpisodes Int         @default(24)
+  world          String      @default("")
+  style          String      @default("")
+  /// 视频引擎：h3（MiniMax 首尾帧/全能参考，4–15s，有时段折扣）| omni（Omni 1.1，3–10s，可 1080P/4K，出片更快）
+  videoEngine    String      @default("h3")
+  videoResolution String     @default("768P")
+  /// 直出镜头是否把场景 / 人设图当参考送进模型。fal 上这意味着走 H3 Max 全能参考（两倍价）；关着走 Turbo 文生
+  textOnlyRefs    Boolean    @default(false)
+  /// 出图推理等级（gpt-image-2.5）：auto | low | medium | high | xhigh | max。人设/道具/场景图与首帧默认都用它
+  imageQuality   String      @default("low")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  styleRefs      StyleRef[]
+  characters     Character[]
+  chapters       Chapter[]
+  assets         Asset[]
+  bgmTracks      BgmTrack[]
+  props          Prop[]
+  scenes         Scene[]
+}
+
+model Asset {
+  id        String   @id @default(cuid())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  kind      String // image | audio | video
+  path      String // relative to STORAGE_DIR
+  mime      String
+  bytes     Int      @default(0)
+  width     Int?
+  height    Int?
+  duration  Float?
+  createdAt DateTime @default(now())
+
+  styleRefs      StyleRef[]
+  personaSheets  Persona[]    @relation("PersonaSheet")
+  voiceSamples   Character[]  @relation("VoiceSample")
+  shotFrames     Shot[]       @relation("ShotFrame")
+  keyframeImages Keyframe[]   @relation("KeyframeImage")
+  shotRefs       ShotRef[]
+  shotVideos     Shot[]       @relation("ShotVideo")
+  chapterExports Chapter[]    @relation("ChapterExport")
+  bgmTracks      BgmTrack[]   @relation("BgmAsset")
+  propSheets     Prop[]       @relation("PropSheet")
+  sceneSheets    Scene[]      @relation("SceneSheet")
+  generations    Generation[]
+}
+
+/// 道具 / 关键物件：概念图由 gpt-image-2 生成，作为首帧与视频的参考图
+/// 场景 / 拍摄地点：概念图由 gpt-image-2 生成，作为首帧的空间参考。
+/// 存在的理由：同一间教室横跨几十个镜头，不锚定的话每张首帧都会各自发明一遍
+/// 课桌怎么排、黑板在哪、窗户朝哪开，跨剪辑点必穿帮。
+model Scene {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String   @default("")
+  prompt      String   @default("")
+  order       Int      @default(0)
+  sheetId     String?
+  sheet       Asset?   @relation("SceneSheet", fields: [sheetId], references: [id], onDelete: SetNull)
+  status      String   @default("none") // none | generating | ready | failed
+  error       String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  shots       Shot[]
+}
+
+/// 创作者手动补充给某一镜首帧的参考图。label 是给模型看的用途说明（姿势 / 光线 / 构图 / 某个物件…）
+/// 首帧之外的关键帧：镜头时间线上的一个画面锚点。at 是秒；-1 表示镜头结束那一刻。
+/// 视频路线由它们决定：没有 → 首帧模式；只有结尾一张 → 首尾帧（起止都钉死）；
+/// 有中间的 → 分段：每一段都是首尾帧钉死的 Turbo 短片，出完用 ffmpeg 拼成一条。
+model Keyframe {
+  id        String   @id @default(cuid())
+  shotId    String
+  shot      Shot     @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  at        Float    @default(-1)
+  /// 这一时刻的画面描述，只写相对首帧变化的部分
+  prompt    String   @default("")
+  /// 到达这一帧的那一段视频的提示词（动作过程 + 这一段的台词）。空 = 用镜头的视频提示词
+  segmentPrompt String @default("")
+  assetId   String?
+  asset     Asset?   @relation("KeyframeImage", fields: [assetId], references: [id], onDelete: SetNull)
+  /// 出图那一刻的输入指纹
+  inputHash String   @default("")
+  createdAt DateTime @default(now())
+  generations Generation[]
+}
+
+model ShotRef {
+  id      String @id @default(cuid())
+  shotId  String
+  shot    Shot   @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  label   String @default("")
+  order   Int    @default(0)
+}
+
+model Prop {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String   @default("")
+  prompt      String   @default("")
+  order       Int      @default(0)
+  sheetId     String?
+  sheet       Asset?   @relation("PropSheet", fields: [sheetId], references: [id], onDelete: SetNull)
+  status      String   @default("none") // none | generating | ready | failed
+  error       String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// 项目音乐库：每首 BGM 一条，分镜阶段按镜头指定
+model BgmTrack {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assetId     String
+  asset       Asset    @relation("BgmAsset", fields: [assetId], references: [id], onDelete: Cascade)
+  name        String
+  mood        String   @default("") // 情绪标签，逗号分隔：抒情，紧张，悬疑
+  description String   @default("")
+  volume      Float    @default(0.25)
+  order       Int      @default(0)
+  shots       Shot[]
+  createdAt   DateTime @default(now())
+}
+
+model StyleRef {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assetId   String
+  asset     Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  order     Int     @default(0)
+}
+
+model Character {
+  id          String  @id @default(cuid())
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  age         String  @default("")
+  role        String  @default("")
+  personality String  @default("")
+  catchphrase String  @default("")
+  relations   String  @default("")
+  order       Int     @default(0)
+
+  voiceSource   String  @default("none") // none | upload | minimax_system
+  voiceId       String? // minimax voice_id
+  voiceLabel    String  @default("")
+  voiceSampleId String?
+  voiceSample   Asset?  @relation("VoiceSample", fields: [voiceSampleId], references: [id], onDelete: SetNull)
+  voiceStatus   String  @default("none") // none | generating | ready | failed
+  voiceError    String  @default("")
+
+  personas  Persona[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Persona {
+  id          String    @id @default(cuid())
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  tag         String
+  description String    @default("")
+  prompt      String    @default("")
+  order       Int       @default(0)
+  sheetId     String?
+  sheet       Asset?    @relation("PersonaSheet", fields: [sheetId], references: [id], onDelete: SetNull)
+  status      String    @default("none") // none | generating | ready | failed
+  error       String    @default("")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Chapter {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  index      Int
+  title      String
+  sourceText String   @default("")
+  agentStatus String  @default("idle") // idle | running | failed
+  agentError  String  @default("")
+
+  // 时间线 / 导出（BGM 在镜头上：Shot.bgmTrackId）
+  bgmVolume    Float   @default(1.0) // 整章 BGM 总倍率
+  subtitles    Boolean @default(true)
+  /// 片尾字卡文案，一行一句，留空则不加字卡
+  endCardText  String  @default("")
+  endCardSecs  Float   @default(4)
+  exportId     String?
+  export       Asset?  @relation("ChapterExport", fields: [exportId], references: [id], onDelete: SetNull)
+  exportStatus String  @default("none") // none | running | ready | failed
+  exportError  String  @default("")
+
+  units      Unit[]
+  shots      Shot[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// 分镜组：一个完整的小情节，含 2–4 个镜头，同场景、同时间段、同光线。
+/// 只用于叙事划分、配乐的连续段落和审片时的分段，本身没有产物。
+model Unit {
+  id          String  @id @default(cuid())
+  chapterId   String
+  chapter     Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  index       Int
+  summary     String
+  paraStart   Int     @default(0)
+  paraEnd     Int     @default(0)
+
+  shots       Shot[]
+  generations Generation[]
+}
+
+model Shot {
+  id          String  @id @default(cuid())
+  chapterId   String
+  chapter     Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  unitId      String?
+  unit        Unit?   @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  index       Int
+  /// 拆镜写下来的场景文字（地点·时间·天气），只作描述
+  scene       String  @default("")
+  /// 场景资产：决定这一镜画在哪个空间里，参考图会一并送进首帧
+  sceneId     String?
+  sceneAsset  Scene?  @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  shotSize    String  @default("中景")
+  camera      String  @default("")
+  duration    Int     @default(5)
+  emotion     String  @default("")
+  action      String  @default("")
+  sound       String  @default("")
+  characters  String  @default("[]") // JSON [{characterId, personaTag}]
+  props       String  @default("[]") // JSON [propId]
+  dialogue    String  @default("[]") // JSON [{characterId, line, tone}]
+  framePrompt String  @default("")
+  videoPrompt String  @default("")
+  frameMode   String  @default("image") // image | text_only
+  /// 承接上一镜：出本镜首帧时，把上一镜成片的最后一帧截下来当参考图，保证时间上的延续性
+  usePrevLastFrame Boolean @default(false)
+  /// 本镜首帧的推理等级覆盖；空 = 跟随项目默认
+  frameQuality String  @default("")
+  /// 创作者手动补充的首帧参考图
+  extraRefs   ShotRef[]
+  status      String  @default("draft")
+  needsReview Boolean @default(false)
+  reviewNote  String  @default("")
+  rewriting   Boolean @default(false)
+  cost        Float   @default(0)
+
+  // BGM（分镜阶段指定；相邻同曲导出时连续）
+  bgmTrackId String?
+  bgmTrack   BgmTrack? @relation(fields: [bgmTrackId], references: [id], onDelete: SetNull)
+  /// 生成视频时把本镜对应的那段 BGM 作为参考音频送给模型（需走「全能参考」变体）。
+  /// 默认关：模型被要求只输出人声与环境音效，配乐一律由导出时混音，送 BGM 没有收益且首帧会降级为参考图。
+  bgmToModel Boolean @default(false)
+
+  // 时间线剪辑参数
+  clipOrder    Int?
+  clipIn       Float   @default(0)
+  clipOut      Float?
+  clipEnabled  Boolean @default(true)
+  clipSubtitle String  @default("") // 留空则用台词
+  /// 对齐后的字幕：JSON [{text,start,end}]，时间相对原始成片。空 = 导出时按字数比例铺
+  subtitleCues String  @default("")
+  /// 上次对齐时识别出来的话，用来核对念没念对
+  asrText      String  @default("")
+  fadeIn       Float   @default(0)
+  fadeOut      Float   @default(0)
+
+  /// 出图/出片那一刻所有输入的指纹；与当前重算值不同即表示已过期
+  frameInputHash String @default("")
+  videoInputHash String @default("")
+
+  frameId String?
+  frame   Asset?  @relation("ShotFrame", fields: [frameId], references: [id], onDelete: SetNull)
+  /// 首帧之外的关键帧：镜头时间线上的画面锚点
+  keyframes Keyframe[]
+  /// 上次从预演视频里给本镜截帧时用的那条预演与时间点（秒）。再打开镜头时进度条自动跳回去
+  previzGenerationId String?
+  previzTime         Float   @default(-1)
+  videoId String?
+  video   Asset?  @relation("ShotVideo", fields: [videoId], references: [id], onDelete: SetNull)
+
+  generations Generation[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Generation {
+  id             String    @id @default(cuid())
+  kind           String // sheet | frame | keyframe | video | voice | storyboard | previz
+  keyframeId     String?
+  keyframe       Keyframe? @relation(fields: [keyframeId], references: [id], onDelete: Cascade)
+  shotId         String?
+  shot           Shot?     @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  personaId      String?
+  characterId    String?
+  chapterId      String?
+  unitId         String?
+  unit           Unit?     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  /// 本次实际喂进模型的输入资产血缘：JSON [{assetId, role, label}]
+  inputs         String    @default("[]")
+  provider       String
+  model          String
+  prompt         String    @default("")
+  params         String    @default("{}")
+  status         String    @default("queued") // queued | running | success | failed
+  externalTaskId String?
+  progress       String    @default("")
+  resultId       String?
+  result         Asset?    @relation(fields: [resultId], references: [id], onDelete: SetNull)
+  error          String    @default("")
+  cost           Float     @default(0)
+  /// 用户给这一版起的备注（"台词对""表情好"），版本对比时看
+  label          String    @default("")
+  createdAt      DateTime  @default(now())
+  finishedAt     DateTime?
+}
+
+model Job {
+  id        String    @id @default(cuid())
+  type      String
+  payload   String    @default("{}")
+  status    String    @default("queued") // queued | running | done | failed
+  attempts  Int       @default(0)
+  runAt     DateTime  @default(now())
+  lockedAt  DateTime?
+  error     String    @default("")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([status, runAt])
+}

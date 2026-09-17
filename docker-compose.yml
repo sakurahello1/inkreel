@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file: .env.production
+    environment:
+      DATABASE_URL: file:/data/app.db
+      STORAGE_DIR: /data/storage
+      SUBTITLE_FONT: Noto Sans CJK SC
+    volumes:
+      - ./data:/data

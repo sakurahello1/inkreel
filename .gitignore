@@ -1,0 +1,33 @@
+*.log
+.env
+.env.local
+.env.production
+.next
+node_modules
+out
+tsconfig.tsbuildinfo
+
+# 数据库与生成文件（默认在项目外的 short-play-data/，这里兜底）
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db.old
+prisma/dev.db
+prisma/dev.db-journal
+storage
+storage.old
+data
+
+# 本机工具与临时物
+.claude
+testframe.txt
+
+# 根目录下的素材 / 成片 / 声音样本，不进仓库
+/*.mp4
+/*.wav
+/*.mp3
+/*.srt
+/*.png
+/*.jpg
+
+# 一次性脚本留下的项目数据备份
+scripts/.*.json

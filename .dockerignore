@@ -1,0 +1,14 @@
+node_modules
+.next
+storage
+storage.old
+data
+docs
+.env
+.env.local
+.env.production
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db.old
+.git
+.claude

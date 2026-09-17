@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f4efe6;
+  --color-paper-deep: #ebe4d7;
+  --color-panel: #fbf8f2;
+  --color-ink: #1f1b17;
+  --color-ink-2: #6b6259;
+  --color-ink-3: #9a9087;
+  --color-line: #d9d0c3;
+  --color-line-strong: #2a2622;
+  --color-cinnabar: #b4302b;
+  --color-cinnabar-deep: #8e2521;
+  --color-cinnabar-wash: #f3e1de;
+  --color-amber: #c58a2a;
+  --color-amber-wash: #f5e9d2;
+  --color-indigo: #3d5a80;
+  --color-indigo-wash: #dfe6ef;
+  --color-moss: #3f6b4a;
+  --color-moss-wash: #dfe9e0;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+}
+
+@theme inline {
+  --font-serif: var(--font-serif-sc), "LXGW WenKai", "Songti SC", "STSong", "SimSun", serif;
+  --font-sans: var(--font-sans-sc), "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --font-mono: var(--font-mono-en), "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  height: 100%;
+  background: var(--color-paper);
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(rgba(31, 27, 23, 0.035) 0.6px, transparent 0.6px);
+  background-size: 4px 4px;
+}
+
+::selection {
+  background: var(--color-cinnabar);
+  color: var(--color-paper);
+}
+
+textarea,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* 印刷表格：细横线，无竖线 */
+.ledger tr + tr td {
+  border-top: 1px solid var(--color-line);
+}
+
+/* 印章风徽章 */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  line-height: 16px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* 走带进度 */
+.tape {
+  position: relative;
+  height: 3px;
+  background: var(--color-line);
+  overflow: hidden;
+}
+.tape::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--color-indigo);
+  animation: tape 1.6s linear infinite;
+}
+@keyframes tape {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+
+/* 占位符斜纹 */
+.placeholder {
+  background-color: var(--color-paper-deep);
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 10px,
+    rgba(31, 27, 23, 0.05) 10px,
+    rgba(31, 27, 23, 0.05) 11px
+  );
+  border: 1px dashed var(--color-line-strong);
+  border-color: rgba(42, 38, 34, 0.35);
+}
+
+/* 细滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
