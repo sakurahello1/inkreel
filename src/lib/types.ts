@@ -278,6 +278,8 @@ export interface Project {
   textOnlyRefs?: boolean;
   /** 分段路线每段的最短秒数（fal 5 / 中转站 4），中间帧的时间点受它约束 */
   minSegmentSeconds?: number;
+  /** 当前后端 Turbo 首帧每秒估价（美元），界面提示用 */
+  videoPerSecond?: number;
   /** 出图推理等级默认档：low | medium | high | xhigh | max */
   imageQuality?: string;
   styleRefItems?: StyleRef[];

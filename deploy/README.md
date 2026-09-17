@@ -14,7 +14,7 @@ sudo usermod -aG docker $USER   # 重新登录生效
 ## 2. 拉代码、写环境变量
 
 ```bash
-git clone <你的仓库> slate && cd slate
+git clone https://github.com/sakurahello1/short-play.git && cd short-play
 cp .env.example .env.production
 ```
 

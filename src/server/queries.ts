@@ -2,7 +2,7 @@ import { db, parseJson } from "./db";
 import { assetUrl } from "./storage";
 import { splitParagraphs } from "./agent/storyboard";
 import { chapterFreshnessIn, loadLineageContext, frameLineageIn, videoLineageIn, videoRouteOf, orderKeyframes, type Freshness } from "./lineage";
-import { minSegmentSeconds } from "./providers/video";
+import { estimateVideoCost, minSegmentSeconds } from "./providers/video";
 import type { Chapter, Character, GenStatus, Project, Prop, Scene, Shot, ShotStatus } from "@/lib/types";
 
 function fmt(d: Date) {
@@ -162,6 +162,7 @@ export async function listProjects(): Promise<Project[]> {
     imageQuality: p.imageQuality,
     textOnlyRefs: p.textOnlyRefs,
     minSegmentSeconds: minSegmentSeconds(),
+    videoPerSecond: Math.round((estimateVideoCost(10, "h3", p.videoResolution || "768P", "i2v") / 10) * 1000) / 1000,
     bgmTracks: p.bgmTracks.map(bgmView),
     props: p.props.map(propView),
     scenes: p.scenes.map(sceneView),
@@ -209,6 +210,7 @@ export async function getProjectView(id: string): Promise<Project | null> {
     imageQuality: p.imageQuality,
     textOnlyRefs: p.textOnlyRefs,
     minSegmentSeconds: minSegmentSeconds(),
+    videoPerSecond: Math.round((estimateVideoCost(10, "h3", p.videoResolution || "768P", "i2v") / 10) * 1000) / 1000,
     styleRefItems: p.styleRefs.map((r) => ({ id: r.id, url: assetUrl(r.asset.path) ?? "" })),
     bgmTracks: p.bgmTracks.map(bgmView),
     props: p.props.map(propView),

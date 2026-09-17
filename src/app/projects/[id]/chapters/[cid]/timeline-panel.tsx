@@ -91,7 +91,7 @@ export function TimelinePanel({ shot, project, chapter, onClose }: { shot: Shot;
   const selected = sel === "first" ? null : kfs.find((k) => k.id === sel) ?? null;
   const ticks = Array.from({ length: Math.floor(duration) + 1 }, (_, i) => i);
   const withPrompt = kfs.filter((k) => k.prompt.trim()).length;
-  const price = 0.01;
+  const price = project.videoPerSecond ?? 0.01;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-paper">

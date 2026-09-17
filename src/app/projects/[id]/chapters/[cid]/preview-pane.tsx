@@ -54,9 +54,9 @@ function KeyframesBlock({ shot, project, chapter, onTimeline }: { shot: Shot; pr
   const minSeg = project.minSegmentSeconds ?? 5;
   const routeNote =
     route === "segments"
-      ? `分段首尾帧 · Turbo · 视频 $0.01/s · 切成 ${segmentsOf(kfs, shot.duration).length} 段各自钉死起止后拼接`
+      ? `分段首尾帧 · Turbo · 视频 $${project.videoPerSecond ?? 0.01}/s · 切成 ${segmentsOf(kfs, shot.duration).length} 段各自钉死起止后拼接`
       : route === "flf"
-        ? "首尾帧 · Turbo · 视频 $0.01/s · 起止画面钉死"
+        ? `首尾帧 · Turbo · 视频 $${project.videoPerSecond ?? 0.01}/s · 起止画面钉死`
         : kfs.length
           ? "关键帧还没出图 · 视频仍走首帧模式"
           : "留空则只用首帧";
