@@ -53,7 +53,7 @@ export function FilePick({ label, onFile, size = "sm" }: { label: string; onFile
 
 /** 一张关键帧的卡片：时间点、图、描述、生成 / 上传、版本。右栏普通模式与时间线面板共用 */
 export function KeyframeCard({ kf, shot, project, chapter }: { kf: Keyframe; shot: Shot; project: Project; chapter: Chapter }) {
-  const { act: run, pending } = useAct();
+  const { act: run, pending, toast } = useAct();
   const [text, setText] = useState(kf.prompt);
   useEffect(() => setText(kf.prompt), [kf.prompt]);
   const [seg, setSeg] = useState(kf.segmentPrompt ?? "");
@@ -85,7 +85,7 @@ export function KeyframeCard({ kf, shot, project, chapter }: { kf: Keyframe; sho
                 const v = prompt(`改到第几秒？（1–${Math.max(1, shot.duration - 1)}）`, String(kf.at));
                 if (v === null) return;
                 const at = Number(v);
-                if (!Number.isFinite(at) || at <= 0 || at >= shot.duration) { alert("要在 0 与镜头时长之间"); return; }
+                if (!Number.isFinite(at) || at <= 0 || at >= shot.duration) { toast.push("err", "要在 0 与镜头时长之间"); return; }
                 run(() => updateShotKeyframe(project.id, chapter.id, kf.id, { at: Math.round(at * 2) / 2 }));
               }}
             >

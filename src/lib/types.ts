@@ -314,6 +314,8 @@ export interface Project {
   imageQuality?: string;
   /** 制作类型：短剧 | 说书 */
   kind?: "drama" | "narrated";
+  /** 项目列表的封面：第一张已出的首帧 / 页图 */
+  poster?: string | null;
   presentStyle?: "subtitle" | "galgame";
   narratorVoiceId?: string | null;
   narratorVoiceLabel?: string;

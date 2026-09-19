@@ -30,14 +30,19 @@ export default async function ProjectsPage() {
         }
       />
       <main className="mx-auto max-w-[1500px] px-6 py-8">
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div className="stagger grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {projects.map((p, idx) => {
             const shots = p.chapters.reduce((a, c) => a + c.shots.length, 0);
             const done = p.chapters.reduce((a, c) => a + c.shots.filter((s) => s.status === "done").length, 0);
             return (
-              <Link key={p.id} href={`/projects/${p.id}/world`} className="group block">
-                <div className="relative border border-line-strong bg-panel p-1.5 transition-colors group-hover:border-cinnabar">
-                  <Placeholder label="POSTER 9:16" ratio="9/16" hint="封面待生成" className="border-0" />
+              <Link key={p.id} href={`/projects/${p.id}/world`} className="group block" style={{ "--i": idx } as React.CSSProperties}>
+                <div className="lift relative border border-line-strong bg-panel p-1.5 group-hover:border-cinnabar">
+                  {p.poster ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.poster} alt="" className="block w-full object-cover" style={{ aspectRatio: "9 / 16" }} loading="lazy" />
+                  ) : (
+                    <Placeholder label="POSTER 9:16" ratio="9/16" hint="封面待生成" className="border-0" />
+                  )}
                   <div className="absolute left-3 top-3 font-mono text-[10px] tracking-wider text-ink-2">NO.{String(idx + 1).padStart(3, "0")}</div>
                 </div>
                 <div className="mt-3 flex items-start justify-between gap-2">

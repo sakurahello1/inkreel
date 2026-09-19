@@ -40,7 +40,7 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
   const [agentOpen, setAgentOpen] = useState(false);
   const [previzOpen, setPrevizOpen] = useState(false);
   const [stageRequest, setStageRequest] = useState<{ stage: "reference" | "frame" | "video"; nonce: number } | null>(null);
-  const { act, pending } = useAct();
+  const { act, pending, toast } = useAct();
   const narrated = project.kind === "narrated";
 
   const shots = chapter.shots;
@@ -53,6 +53,41 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
   useEffect(() => {
     if (currentId && !shots.some((s) => s.id === currentId)) setCurrentId(shots[0]?.id ?? null);
   }, [shots, currentId]);
+
+  // 键盘：↑↓ / j k 换镜，x 勾选当前，Esc 关抽屉。输入框里不抢键
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const idx = shots.findIndex((s) => s.id === currentId);
+      if (e.key === "ArrowDown" || e.key === "j") {
+        e.preventDefault();
+        setCurrentId(shots[Math.min(shots.length - 1, idx + 1)]?.id ?? null);
+      } else if (e.key === "ArrowUp" || e.key === "k") {
+        e.preventDefault();
+        setCurrentId(shots[Math.max(0, idx - 1)]?.id ?? null);
+      } else if (e.key === "x" && currentId) {
+        setChecked((prev) => {
+          const n = new Set(prev);
+          if (n.has(currentId)) n.delete(currentId);
+          else n.add(currentId);
+          return n;
+        });
+      } else if (e.key === "Escape") {
+        setAgentOpen(false);
+        setPrevizOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [shots, currentId]);
+
+  // 当前镜滚进视野（键盘换镜、预演跳转时）
+  useEffect(() => {
+    if (!currentId) return;
+    document.getElementById(`shot-${currentId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [currentId]);
 
   const totalDuration = shots.reduce((a, s) => a + s.duration, 0);
   const totalCost = shots.reduce((a, s) => a + s.cost, 0);
@@ -74,8 +109,8 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 工具条 */}
-      <div className="flex shrink-0 items-center justify-between border-b border-line bg-panel px-6 py-1.5">
-        <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-y-1.5 border-b border-line bg-panel px-6 py-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5 pr-2 text-[12px] text-ink-2">
             <input type="checkbox" className="accent-cinnabar" checked={checked.size === shots.length} onChange={() => setChecked(checked.size === shots.length ? new Set() : new Set(shots.map((s) => s.id)))} />
             全选
@@ -91,15 +126,15 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
               <Link href={`/projects/${project.id}/casting`} className="inline-flex h-7 items-center border border-line px-2 text-[12px] text-ink-2 hover:border-line-strong hover:text-ink" title="配音前的闸门：每个开口的角色和旁白都要人工确认一个音色">
                 选角
               </Link>
-              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => generateChapterVoices(project.id, chapter.id, { shotIds: ids }))} title="MiniMax TTS。选角没全部确认会拒绝；配齐一页自动渲染页视频">
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(async () => { const n = await generateChapterVoices(project.id, chapter.id, { shotIds: ids }); toast.push(n ? "ok" : "info", n ? `已排队 ${n} 条配音` : "选中的页配音都是新的，没有要重配的"); })} title="MiniMax TTS。选角没全部确认会拒绝；配齐一页自动渲染页视频">
                 配音
               </Button>
               {project.presentStyle === "galgame" && (
-                <Button size="sm" disabled={pending} onClick={() => act(async () => { const n = await generateChapterSprites(project.id, chapter.id); alert(n ? `已排队 ${n} 张立绘（按本章台词的人设 × 表情补齐）` : "本章台词用到的立绘都齐了"); })} title="galgame 立绘：按本章台词里出现的人设 × 表情，把还没有的补齐；人物库里也能逐个看和重画">
+                <Button size="sm" disabled={pending} onClick={() => act(async () => { const n = await generateChapterSprites(project.id, chapter.id); toast.push(n ? "ok" : "info", n ? `已排队 ${n} 张立绘（按本章台词的人设 × 表情补齐）` : "本章台词用到的立绘都齐了"); })} title="galgame 立绘：按本章台词里出现的人设 × 表情，把还没有的补齐；人物库里也能逐个看和重画">
                 立绘
               </Button>
               )}
-              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => renderPages(project.id, chapter.id, ids))} title="图 + 配音 → 页视频（有图且配音齐的页才会渲染）">
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(async () => { const n = await renderPages(project.id, chapter.id, ids); toast.push(n ? "ok" : "info", n ? `开始渲染 ${n} 页` : "选中的页里没有「有图且配音齐」的"); })} title="图 + 配音 → 页视频（有图且配音齐的页才会渲染）">
                 渲染页
               </Button>
               <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => acceptVideos(project.id, chapter.id, ids))}>
@@ -205,7 +240,7 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
       )}
 
       {/* 三栏 */}
-      <div className="grid min-h-0 flex-1 grid-cols-[340px_1fr_380px]">
+      <div className="grid min-h-0 flex-1 grid-cols-[320px_1fr_380px] 2xl:grid-cols-[360px_1fr_440px]">
         <LeftPane
           project={project}
           chapter={chapter}
@@ -221,9 +256,10 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
           {groups.map(({ unit, shots: us }) => (
             <section key={unit.id}>
               <UnitHeader unit={unit} shots={us} narrated={narrated} />
-              <ul>
-                {us.map((s) => (
+              <ul className="stagger">
+                {us.map((s, i) => (
                   <ShotRow
+                    order={i}
                     key={s.id}
                     shot={s}
                     project={project}

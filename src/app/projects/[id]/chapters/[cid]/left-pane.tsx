@@ -105,7 +105,7 @@ export function LeftPane({
                           type="button"
                           onClick={() => onPickShot(s.id)}
                           title={project.kind === "narrated" ? `第 ${s.index} 页\n${s.narration || s.scene}` : `#${String(s.index).padStart(2, "0")} ${s.shotSize} ${s.duration}s\n${s.action || s.scene}`}
-                          className={cx("group relative block overflow-hidden rounded-sm border transition-colors", active ? "border-cinnabar" : "border-line hover:border-line-strong")}
+                          className={cx("group relative block overflow-hidden rounded-sm border transition-[border-color,transform,box-shadow] duration-200 hover:-translate-y-px hover:shadow-md", active ? "border-cinnabar shadow-sm" : "border-line hover:border-line-strong")}
                         >
                           {s.frameUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -142,7 +142,9 @@ export function ShotRow({
   onSelect,
   onCheck,
   onToggleFrameMode,
+  order = 0,
 }: {
+  order?: number;
   shot: Shot;
   project: Project;
   chapter: Chapter;
@@ -155,8 +157,8 @@ export function ShotRow({
   const firstLine = shot.dialogue[0];
   const narrated = project.kind === "narrated";
   return (
-    <li className={cx("border-b border-line", active && "bg-paper")}>
-      <div onClick={onSelect} className={cx("grid cursor-pointer grid-cols-[28px_40px_36px_70px_1fr_88px_72px_110px] items-center gap-2 px-4 py-2", active && "border-l-2 border-cinnabar pl-[14px]")}>
+    <li id={`shot-${shot.id}`} style={{ "--i": order } as React.CSSProperties} className={cx("border-b border-line transition-colors duration-200", active ? "bg-paper" : "hover:bg-paper/60")}>
+      <div onClick={onSelect} className={cx("grid cursor-pointer grid-cols-[28px_40px_36px_70px_1fr_88px_72px_110px] items-center gap-2 border-l-2 px-4 py-2 transition-[border-color,padding] duration-200", active ? "border-cinnabar pl-[14px]" : "border-transparent")}>
         <input type="checkbox" className="accent-cinnabar" checked={checked} onChange={onCheck} onClick={(e) => e.stopPropagation()} />
         <Mono className="text-[12px] text-ink-2">
           #{String(shot.index).padStart(2, "0")}

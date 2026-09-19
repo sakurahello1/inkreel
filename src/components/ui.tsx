@@ -39,7 +39,7 @@ export function Button({
   title,
 }: ButtonProps) {
   const base = cx(
-    "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border font-medium transition-colors select-none",
+    "press inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border font-medium select-none",
     size === "sm" ? "h-7 px-2.5 text-[12px]" : "h-8 px-3.5 text-[13px]",
     variant === "primary" &&
       "bg-cinnabar border-cinnabar text-paper hover:bg-cinnabar-deep hover:border-cinnabar-deep",
@@ -78,7 +78,7 @@ export function Stamp({ tone = "neutral", children, className }: { tone?: Tone; 
 
 export function StatusStamp({ status, withLabel = true }: { status: ShotStatus; withLabel?: boolean }) {
   return (
-    <Stamp tone={STATUS_TONE[status]}>
+    <Stamp key={status} tone={STATUS_TONE[status]} className="anim-pop">
       {STATUS_CODE[status]}
       {withLabel && <span className="font-sans tracking-normal normal-case">{STATUS_LABEL[status]}</span>}
     </Stamp>
@@ -230,29 +230,6 @@ export function Slate({
   );
 }
 
-/* ---------- 标签页导航 ---------- */
+/* ---------- 标签页导航（下划线滑动，实现在 tab-nav.tsx） ---------- */
 
-export function TabNav({ items, current }: { items: Array<{ href: string; label: string; count?: number }>; current: string }) {
-  return (
-    <nav className="shrink-0 border-b border-line bg-panel">
-      <div className="mx-auto flex max-w-[1500px] gap-1 px-6">
-        {items.map((it) => {
-          const active = current === it.href || current.startsWith(it.href + "/");
-          return (
-            <Link
-              key={it.href}
-              href={it.href}
-              className={cx(
-                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13px] transition-colors",
-                active ? "border-cinnabar text-ink" : "border-transparent text-ink-2 hover:text-ink",
-              )}
-            >
-              {it.label}
-              {typeof it.count === "number" && <Mono className="text-[10.5px] text-ink-3">{it.count}</Mono>}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
+export { TabNav } from "./tab-nav";

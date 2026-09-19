@@ -18,7 +18,7 @@ function clipLen(s: Shot) {
 
 export function TimelineEditor({ project, chapter }: { project: Project; chapter: Chapter }) {
   const tl = chapter.timeline!;
-  const { act, pending } = useAct();
+  const { act, pending, toast } = useAct();
   const [volume, setVolume] = useState(tl.bgmVolume);
   useAutoRefresh(tl.exportStatus === "running", 4000);
 
@@ -186,7 +186,7 @@ export function TimelineEditor({ project, chapter }: { project: Project; chapter
                 act(async () => {
                   const r = await alignChapterSubtitles(project.id, chapter.id);
                   const bad = r.filter((x) => x.similarity >= 0 && x.similarity < 0.6);
-                  alert(`已对齐 ${r.length} 镜${bad.length ? `\n\n疑似念错 / 没念（相似度 < 0.6）：\n${bad.map((x) => `#${String(x.index).padStart(2, "0")} 听到：${x.heard || "（无人声）"}`).join("\n")}` : ""}`);
+                  toast.push(bad.length ? "info" : "ok", `已对齐 ${r.length} 镜${bad.length ? `\n疑似念错 / 没念（相似度 < 0.6）：\n${bad.map((x) => `#${String(x.index).padStart(2, "0")} 听到：${x.heard || "（无人声）"}`).join("\n")}` : ""}`, bad.length ? 9000 : undefined);
                 })
               }
             >

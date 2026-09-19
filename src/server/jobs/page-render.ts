@@ -6,6 +6,7 @@ import { Job, errText } from "../core/job";
 import { pageRenderHash } from "../lineage";
 import { absPath, saveAsset } from "../storage";
 import { buildGalgameAss, renderPageClip, splitSentences, type GalBlock } from "../ffmpeg";
+import { splitCue } from "@/lib/cues";
 import { PAGE_GAP, PAGE_LEAD, PAGE_TAIL } from "../services/narrated-service";
 import { DEFAULT_EXPRESSION } from "@/lib/narrated";
 
@@ -144,37 +145,3 @@ export class PageRenderJob extends Job<Payload> {
 }
 
 const round = (x: number) => Math.round(x * 1000) / 1000;
-
-/** 一条字幕最多这么多字，再长就按句切开 */
-const MAX_CUE_CHARS = 24;
-
-function splitCue(text: string, start: number, end: number): Array<{ text: string; start: number; end: number }> {
-  const clean = text.trim();
-  if (clean.length <= MAX_CUE_CHARS) return [{ text: clean, start, end }];
-  // 先按句号切；还超长的句子再按逗号顿号贪心拼成不超过上限的小段
-  const sents = splitSentences(clean).flatMap((x) => (x.length <= MAX_CUE_CHARS ? [x] : chunkByComma(x)));
-  if (sents.length <= 1) return [{ text: clean, start, end }];
-  const total = sents.reduce((a, x) => a + Math.max(2, x.length), 0);
-  const out: Array<{ text: string; start: number; end: number }> = [];
-  let st = start;
-  for (const x of sents) {
-    const d = (Math.max(2, x.length) / total) * (end - start);
-    out.push({ text: x, start: st, end: st + d });
-    st += d;
-  }
-  return out;
-}
-
-function chunkByComma(sentence: string) {
-  const parts = sentence.split(/(?<=[，、；,;：:])/).map((x) => x.trim()).filter(Boolean);
-  const out: string[] = [];
-  let cur = "";
-  for (const part of parts) {
-    if (cur && cur.length + part.length > MAX_CUE_CHARS) {
-      out.push(cur);
-      cur = part;
-    } else cur += part;
-  }
-  if (cur) out.push(cur);
-  return out.length ? out : [sentence];
-}

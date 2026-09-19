@@ -89,6 +89,7 @@ export function ShotEditor({ shot, project, chapter }: { shot: Shot; project: Pr
           scene: form.scene,
           characters: form.characters,
         }),
+        { ok: "已保存，配音条已重排" },
       );
       return;
     }
@@ -106,11 +107,12 @@ export function ShotEditor({ shot, project, chapter }: { shot: Shot; project: Pr
         characters: form.characters,
         dialogue: form.dialogue,
       }),
+      { ok: "已保存" },
     );
   }
 
   return (
-    <div className="border-t border-dashed border-line bg-paper px-4 pb-4 pt-3">
+    <div className="anim-in border-t border-dashed border-line bg-paper px-4 pb-4 pt-3">
       {shot.reviewNote && <div className="mb-3 rounded-sm border border-cinnabar/40 bg-cinnabar-wash px-3 py-1.5 font-mono text-[11px] text-cinnabar">{shot.reviewNote}</div>}
       <div className="grid grid-cols-4 gap-3">
         <Field label="场景" className="col-span-2" hint="左边挂场景库里的空间基准图，右边是这一镜自己的时间与天气">

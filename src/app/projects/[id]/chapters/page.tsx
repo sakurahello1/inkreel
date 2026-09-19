@@ -35,15 +35,15 @@ export default async function ChaptersPage({ params }: { params: Promise<{ id: s
               <th className="w-24 px-4 py-2" />
             </tr>
           </thead>
-          <tbody>
-            {project.chapters.map((ch) => {
+          <tbody className="stagger">
+            {project.chapters.map((ch, ci) => {
               const total = ch.shots.length;
               const dur = ch.shots.reduce((a, s) => a + s.duration, 0);
               const cost = ch.shots.reduce((a, s) => a + s.cost, 0);
               const done = ch.shots.filter((s) => s.status === "done").length;
               const chars = ch.sourceText.join("").length;
               return (
-                <tr key={ch.id} className="group hover:bg-paper">
+                <tr key={ch.id} style={{ "--i": ci } as React.CSSProperties} className="group transition-colors duration-200 hover:bg-paper">
                   <td className="px-4 py-3 align-top font-mono text-ink-2">{String(ch.index).padStart(2, "0")}</td>
                   <td className="px-2 py-3 align-top">
                     <Link href={`/projects/${project.id}/chapters/${ch.id}`} className="font-serif text-[15px] font-bold tracking-wide hover:text-cinnabar">
@@ -61,7 +61,7 @@ export default async function ChaptersPage({ params }: { params: Promise<{ id: s
                   <td className="px-2 py-3 align-top font-mono">{formatTimecode(dur)}</td>
                   <td className="px-2 py-3 align-top">
                     {total > 0 ? (
-                      <div className="flex h-[6px] w-full overflow-hidden bg-line">
+                      <div className="grow-x flex h-[6px] w-full overflow-hidden bg-line">
                         {STATUS_ORDER.map((st) => {
                           const n = ch.shots.filter((s) => s.status === st).length;
                           if (!n) return null;

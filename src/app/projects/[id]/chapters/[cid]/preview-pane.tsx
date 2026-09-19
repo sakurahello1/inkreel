@@ -48,7 +48,7 @@ import { renderPages } from "@/server/actions";
  * 不动镜头状态，进度看各帧自己的 Generation。
  */
 function KeyframesBlock({ shot, project, chapter, onTimeline }: { shot: Shot; project: Project; chapter: Chapter; onTimeline: () => void }) {
-  const { act: run, pending } = useAct();
+  const { act: run, pending, toast } = useAct();
   const kfs = shot.keyframes ?? [];
   const route = shot.videoRoute ?? "i2v";
   const hasEnd = kfs.some((k) => k.at < 0);
@@ -92,7 +92,7 @@ function KeyframesBlock({ shot, project, chapter, onTimeline }: { shot: Shot; pr
             const v = prompt(`第几秒的画面？（${minSeg}–${shot.duration - minSeg}，整数）`, String(Math.round(shot.duration / 2)));
             if (v === null) return;
             const at = Number(v);
-            if (!Number.isInteger(at) || at < minSeg || at > shot.duration - minSeg) { alert(`要在第 ${minSeg}–${shot.duration - minSeg} 秒之间的整数`); return; }
+            if (!Number.isInteger(at) || at < minSeg || at > shot.duration - minSeg) { toast.push("err", `要在第 ${minSeg}–${shot.duration - minSeg} 秒之间的整数`); return; }
             run(() => addShotKeyframe(project.id, chapter.id, shot.id, at));
           }}
         >
@@ -303,7 +303,7 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
         })}
       </nav>
 
-      <div className="p-4">
+      <div key={stage} className="anim-fade p-4">
         {stage === "reference" && (
           <div>
             <div className="mb-2 flex items-center justify-between">

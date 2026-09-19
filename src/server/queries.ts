@@ -155,12 +155,14 @@ export async function listProjects(): Promise<Project[]> {
       props: { include: propInclude, orderBy: { order: "asc" } },
       scenes: { include: sceneInclude, orderBy: { order: "asc" } },
       characters: { include: characterInclude, orderBy: { order: "asc" } },
-      chapters: { include: { shots: { select: { status: true, duration: true, cost: true } } }, orderBy: { index: "asc" } },
+      chapters: { include: { shots: { select: { status: true, duration: true, cost: true, frame: { select: { path: true } } }, orderBy: { index: "asc" } } }, orderBy: { index: "asc" } },
     },
   });
   return rows.map((p) => ({
     id: p.id,
     title: p.title,
+    // 封面：第一张已出的首帧 / 页图
+    poster: assetUrl(p.chapters.flatMap((c) => c.shots).find((s) => s.frame)?.frame?.path),
     genre: p.genre ? p.genre.split(/[,，]/).map((s) => s.trim()).filter(Boolean) : [],
     orientation: p.orientation as Project["orientation"],
     targetEpisodes: p.targetEpisodes,

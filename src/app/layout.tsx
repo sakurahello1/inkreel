@@ -3,6 +3,7 @@ import Link from "next/link";
 import { IBM_Plex_Mono, Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
 import "./globals.css";
 import { monthlySpend } from "@/server/queries";
+import { ToastProvider } from "@/components/toast";
 
 const serif = Noto_Serif_SC({
   weight: ["600", "900"],
@@ -38,6 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // 这类差异无害且无法避免，不抑制会每次都报 hydration 不匹配。
     <html lang="zh-CN" className={`${serif.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <body>
+        <ToastProvider>
         <header className="shrink-0 border-b border-line-strong bg-paper">
           <div className="mx-auto flex h-12 max-w-[1500px] items-center justify-between px-6">
             <div className="flex items-center gap-8">
@@ -74,6 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
         {children}
+        </ToastProvider>
       </body>
     </html>
   );

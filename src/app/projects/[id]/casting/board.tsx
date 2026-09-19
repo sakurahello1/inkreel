@@ -67,9 +67,9 @@ export function CastingBoard({ project, initial }: { project: Project; initial: 
             {st.ready ? "所有角色都确认了音色，可以去章节页配音。" : `还有 ${st.roles.length - confirmedCount} 个角色没确认音色：${st.roles.filter((r) => !r.confirmed).map((r) => r.name).join("、")}。听候选，或在右侧手动选一个。`}
           </div>
         )}
-        <div className="flex flex-col gap-4">
-          {st.roles.map((r) => (
-            <section key={r.key} className={cx("border bg-panel p-4", r.confirmed ? "border-moss/50" : "border-line")}>
+        <div className="stagger flex flex-col gap-4">
+          {st.roles.map((r, ri) => (
+            <section key={r.key} style={{ "--i": ri } as React.CSSProperties} className={cx("border bg-panel p-4 transition-colors duration-300", r.confirmed ? "border-moss/50" : "border-line")}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <Avatar name={r.name} size={36} />
@@ -113,7 +113,7 @@ export function CastingBoard({ project, initial }: { project: Project; initial: 
                 {r.candidates.map((c, i) => {
                   const chosen = r.voiceId === c.voiceId;
                   return (
-                    <div key={c.voiceId} className={cx("border p-3", chosen ? "border-cinnabar bg-paper" : "border-line bg-paper")}>
+                    <div key={c.voiceId} className={cx("lift border p-3", chosen ? "border-cinnabar bg-paper" : "border-line bg-paper")}>
                       <div className="flex items-center justify-between">
                         <span className="font-serif text-[13px] font-bold">
                           {i + 1}. {c.name}

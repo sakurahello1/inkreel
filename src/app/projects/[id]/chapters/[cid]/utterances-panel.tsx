@@ -40,9 +40,9 @@ export function UtterancesPanel({ shot, project, chapter }: { shot: Shot; projec
         </div>
       )}
       {utts.length === 0 && <p className="border border-dashed border-line px-2.5 py-3 text-center text-[11.5px] text-ink-3">这一页没有旁白也没有台词。左边编辑器里写了保存，就会出现在这里。</p>}
-      <ol className="flex flex-col gap-1.5">
-        {utts.map((u) => (
-          <li key={u.id} className={cx("border bg-panel px-2.5 py-2", u.status === "failed" ? "border-cinnabar/50" : "border-line")}>
+      <ol className="stagger flex flex-col gap-1.5">
+        {utts.map((u, i) => (
+          <li key={u.id} style={{ "--i": i } as React.CSSProperties} className={cx("border bg-panel px-2.5 py-2 transition-colors", u.status === "failed" ? "border-cinnabar/50" : u.status === "generating" ? "border-indigo/50" : "border-line")}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
