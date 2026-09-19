@@ -28,6 +28,8 @@ export class SubtitleService extends Service {
     const shots = await this.db.shot.findMany({ where: { chapterId, videoId: { not: null } }, include: { video: true }, orderBy: { index: "asc" } });
     const reports: AlignReport[] = [];
     for (const s of shots) {
+      // 说书的页视频：字幕来自 TTS 时间戳，已经精确，不用 Whisper 再对
+      if (s.asrText.endsWith("|tts")) continue;
       const lines = s.clipSubtitle.trim() ? s.clipSubtitle.split(/\r?\n+/) : parseJson<Array<{ line: string }>>(s.dialogue, []).map((d) => d.line);
       if (!lines.some((l) => l.trim())) {
         if (s.subtitleCues) await this.db.shot.update({ where: { id: s.id }, data: { subtitleCues: "", asrText: "" } });

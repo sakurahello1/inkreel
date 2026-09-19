@@ -381,3 +381,93 @@ export function shotRewriteUserPrompt(opts: {
     "请输出改写后的镜头 JSON 对象。",
   ].join("\n\n");
 }
+
+/* ====================================================================== *
+ * 说书模式：拆页 / 选角
+ * ====================================================================== */
+
+import { EXPRESSIONS } from "@/lib/narrated";
+export { EXPRESSIONS };
+
+/** 拆页 Agent 的 system prompt。一页 = 画面不变的一段叙述 + 要念的话 */
+export function pagesSystemPrompt(orientation?: string | null) {
+  const ar = orientation === "16:9" ? "横屏（16:9）" : "竖屏（9:16）";
+  return `你是一名有声漫画 / 图文说书的编导。你会把小说原文拆成「页」：每页一张${ar}静态画面，配上要念出来的旁白和台词。没有视频，画面不动，靠配音推进。
+
+硬性规则：
+1. **页的定义**：画面不变的一段叙述。换地点、换构图、换主要人物、时间跳跃，就换页。一段原文可能是 0 页（并入相邻页）、1 页或多页。
+2. **每页配音 10–25 秒**：旁白 + 台词合计约 40–120 个汉字。短了并页，长了拆页。全文按这个粒度走，不要一句一页，也不要一整段一页。
+3. **narration（旁白）**：把原文的叙述改写成适合朗读的口吻，以原文语句为主，只做朗读所需的最小润色。原文里「某某的内心独白：」这类标记不要念，内心独白直接用第一人称写进旁白。「系统提示音：」这类也当旁白念，保留原句。旁白里不要包含台词。
+4. **lines（台词）**：逐字引用原文里人物说的话，不改词。每条给 name（只能用人物表里的名字）、tone（语气）、expression（表情，只能从 ${EXPRESSIONS.join(" / ")} 里选）。旁白与台词按原文顺序自然穿插——但输出里 narration 只有一段，所以请把这一页里台词之前的叙述放进 narration，台词之后还有叙述就另起一页。
+5. **image_prompt（给图片模型）**按固定顺序写：场景与光线天气 → 人物（外貌关键词取自 persona 描述、姿态、表情、位置）→ 景别与机位 → ${ar} 构图要求。不要写画风（系统会加）。空镜也要写。
+6. characters 只能从人物表选，并为每个出场人物指定 persona_tag（只能用该人物已有的 tag）；无法判断用第一个 tag 并把 needs_review 置为 true。
+7. **先分组，再拆页。** 把原文切成若干「分镜组」（unit）：每组是一个完整的小情节，给一句摘要和覆盖的段落区间（段落编号从 0 开始）。每组 2–5 页。每页写 unit_index 归属哪一组。
+8. 道具：如果给了道具库，为每页列出画面里出现的关键道具（props 数组，元素是道具名，只能用库里有的；没有写 []）。
+9. BGM：如果给了音乐库，为每页选一首（bgm 写曲名），同一情绪段落里相邻页沿用同一首，转折处再换；不需要写 null。音乐库为空时一律 null。
+10. 输出必须是严格 JSON，不要任何解释文字。
+
+输出 JSON 结构：
+{
+  "units": [{ "index": 1, "summary": "这一组的小情节", "para_start": 0, "para_end": 1 }],
+  "pages": [{
+    "unit_index": 1,
+    "scene": "地点 · 时间 · 天气",
+    "characters": [{ "name": "人物名", "persona_tag": "tag" }],
+    "props": ["道具名"],
+    "narration": "要念的旁白",
+    "lines": [{ "name": "人物名", "line": "台词原文", "tone": "语气", "expression": "微笑" }],
+    "image_prompt": "给图片模型的画面描述",
+    "bgm": "曲名或 null",
+    "needs_review": false
+  }]
+}`;
+}
+
+export function pagesUserPrompt(opts: {
+  world: string;
+  style: string;
+  characters: Array<{ name: string; age: string; role: string; personality: string; personas: Array<{ tag: string; description: string }> }>;
+  paragraphs: string[];
+  paragraphOffset?: number;
+  instruction?: string;
+  props?: Array<{ name: string; description: string }>;
+  bgmTracks?: Array<{ name: string; mood: string; description: string }>;
+}) {
+  const chars = opts.characters
+    .map((c) => {
+      const tags = c.personas.map((p) => `    - tag「${p.tag}」：${p.description || "（无描述）"}`).join("\n");
+      return `- ${c.name}（${c.age}；${c.role}）性格：${c.personality}\n  可用 persona_tag：\n${tags || "    - （无人设，请勿让此人出场）"}`;
+    })
+    .join("\n");
+  const off = opts.paragraphOffset ?? 0;
+  const paras = opts.paragraphs.map((p, i) => `[${i + off}] ${p}`).join("\n");
+  return [
+    `【世界观】\n${opts.world || "（未填写）"}`,
+    `【画风】\n${opts.style || "（未填写）"}`,
+    `【人物表】\n${chars || "（无人物）"}`,
+    `【道具库】\n${propLibraryText(opts.props ?? [])}`,
+    `【音乐库】\n${bgmLibraryText(opts.bgmTracks ?? [])}`,
+    `【原文，按段落编号】\n${paras}`,
+    opts.instruction ? `【额外要求】\n${opts.instruction}` : "",
+    "请输出拆页 JSON。",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** 选角 Agent：给每个角色从音色库里挑 3 个候选 */
+export function castingSystemPrompt() {
+  return `你是一名有声剧的选角导演。给你一组角色（含旁白）和一份音色库，请为每个角色挑出 3 个最合适的音色候选，按合适程度排序。
+考虑：性别、年龄段、气质（少年感 / 成熟 / 沉稳 / 活泼 / 冷淡）、音色描述里的关键词，以及角色的性格与说话风格。旁白要清晰、不抢戏、耐听。
+同一个音色可以给多个角色当候选，但同一角色的 3 个候选不要重复。voice_id 必须原样来自音色库。
+输出必须是严格 JSON：{ "casts": [{ "role": "角色 key", "candidates": [{ "voice_id": "…", "reason": "一句话理由" }] }] }`;
+}
+
+export function castingUserPrompt(opts: {
+  roles: Array<{ key: string; name: string; description: string; sampleLine: string }>;
+  voices: Array<{ voiceId: string; name: string; description: string[] }>;
+}) {
+  const roles = opts.roles.map((r) => `- key「${r.key}」 ${r.name}：${r.description || "（无描述）"}\n  代表句：「${r.sampleLine}」`).join("\n");
+  const voices = opts.voices.map((v) => `- ${v.voiceId} ｜ ${v.name}${v.description.length ? ` ｜ ${v.description.join("，")}` : ""}`).join("\n");
+  return `【角色】\n${roles}\n\n【音色库】\n${voices}\n\n请输出选角 JSON。`;
+}

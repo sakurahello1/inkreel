@@ -4,8 +4,9 @@ import { Service } from "./base";
 
 /** 项目本身：基础信息、世界观、画风参考图、视频引擎 */
 export class ProjectService extends Service {
-  create(title: string) {
-    return this.db.project.create({ data: { title: title.trim() || "未命名项目" } });
+  create(title: string, kind: "drama" | "narrated" = "drama") {
+    // 说书默认横屏：对话框式的惯例，也更像有声漫画
+    return this.db.project.create({ data: { title: title.trim() || "未命名项目", kind, ...(kind === "narrated" ? { orientation: "16:9" } : {}) } });
   }
 
   updateBasics(projectId: string, data: { title?: string; genre?: string; orientation?: string; targetEpisodes?: number }) {

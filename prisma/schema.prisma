@@ -23,6 +23,18 @@ model Project {
   textOnlyRefs    Boolean    @default(false)
   /// 出图推理等级（gpt-image-2.5）：auto | low | medium | high | xhigh | max。人设/道具/场景图与首帧默认都用它
   imageQuality   String      @default("low")
+  /// 制作类型：drama 短剧（视频） | narrated 说书（一页一图 + 配音）
+  kind           String      @default("drama")
+  /// 说书的展示样式：subtitle 字幕式 | galgame 对话框式
+  presentStyle   String      @default("subtitle")
+  /// 说书的旁白音色（MiniMax 系统音色）。选角确认后才能配音
+  narratorVoiceId    String?
+  narratorVoiceLabel String   @default("")
+  narratorConfirmedAt DateTime?
+  /// Agent 选角给旁白的候选：JSON [{voiceId,name,reason,sampleAssetId}]
+  narratorCandidates String   @default("[]")
+  /// 说书页图的缓慢推拉（Ken Burns）强度，0 关
+  kenBurns       Float       @default(0.06)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   styleRefs      StyleRef[]
@@ -52,6 +64,7 @@ model Asset {
   voiceSamples   Character[]  @relation("VoiceSample")
   shotFrames     Shot[]       @relation("ShotFrame")
   keyframeImages Keyframe[]   @relation("KeyframeImage")
+  utteranceAudios Utterance[] @relation("UtteranceAudio")
   shotRefs       ShotRef[]
   shotVideos     Shot[]       @relation("ShotVideo")
   chapterExports Chapter[]    @relation("ChapterExport")
@@ -101,6 +114,34 @@ model Keyframe {
   inputHash String   @default("")
   createdAt DateTime @default(now())
   generations Generation[]
+}
+
+/// 说书：一页里要念的一条——旁白或一句台词。每条单独配音、单独有版本。
+model Utterance {
+  id          String   @id @default(cuid())
+  shotId      String
+  shot        Shot     @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  order       Int      @default(0)
+  kind        String   @default("narration") // narration | line
+  characterId String?
+  text        String   @default("")
+  tone        String   @default("")
+  /// 用哪个音色念、语速、情绪；从人物 / 旁白的选角结果带过来，也可单条覆盖
+  voiceId     String   @default("")
+  speed       Float    @default(1)
+  emotion     String   @default("")
+  assetId     String?
+  asset       Asset?   @relation("UtteranceAudio", fields: [assetId], references: [id], onDelete: SetNull)
+  duration    Float?
+  /// TTS 回的句级时间戳 JSON [{text,start,end}]（秒，相对本条音频）
+  timestamps  String   @default("[]")
+  status      String   @default("none") // none | generating | ready | failed
+  error       String   @default("")
+  inputHash   String   @default("")
+  cost        Float    @default(0)
+  generations Generation[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ShotRef {
@@ -173,6 +214,11 @@ model Character {
   voiceSample   Asset?  @relation("VoiceSample", fields: [voiceSampleId], references: [id], onDelete: SetNull)
   voiceStatus   String  @default("none") // none | generating | ready | failed
   voiceError    String  @default("")
+  /// 说书选角：Agent 给的候选 JSON [{voiceId,name,reason,sampleAssetId}]；人工点了确认才能配音
+  voiceCandidates  String    @default("[]")
+  voiceConfirmedAt DateTime?
+  voiceSpeed       Float     @default(1)
+  voiceEmotion     String    @default("")
 
   personas  Persona[]
   createdAt DateTime  @default(now())
@@ -260,6 +306,9 @@ model Shot {
   dialogue    String  @default("[]") // JSON [{characterId, line, tone}]
   framePrompt String  @default("")
   videoPrompt String  @default("")
+  /// 说书：这一页的旁白（第三人称叙述 / 内心独白）。台词仍在 dialogue 里
+  narration   String  @default("")
+  utterances  Utterance[]
   frameMode   String  @default("image") // image | text_only
   /// 承接上一镜：出本镜首帧时，把上一镜成片的最后一帧截下来当参考图，保证时间上的延续性
   usePrevLastFrame Boolean @default(false)
@@ -317,6 +366,10 @@ model Generation {
   kind           String // sheet | frame | keyframe | video | voice | storyboard | previz
   keyframeId     String?
   keyframe       Keyframe? @relation(fields: [keyframeId], references: [id], onDelete: Cascade)
+  utteranceId    String?
+  utterance      Utterance? @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
+  /// 项目级任务（选角）挂在这里；没有关系，只是个索引键
+  projectId      String?
   shotId         String?
   shot           Shot?     @relation(fields: [shotId], references: [id], onDelete: Cascade)
   personaId      String?

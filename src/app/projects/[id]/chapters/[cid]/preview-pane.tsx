@@ -37,7 +37,9 @@ import { PrevizPicker } from "./previz-picker";
 import { listPreviz } from "@/server/actions";
 import { VersionStrip } from "./version-strip";
 import { DropZone, FilePick, KeyframeCard, fileForm } from "./keyframe-card";
-import { FreshBadge, InputList, PROVIDERS, STAGES, Tape, defaultStage, frameAspect, previewMaxW, type Stage } from "./shared";
+import { FreshBadge, InputList, NARRATED_STAGES, PROVIDERS, STAGES, Tape, defaultStage, frameAspect, previewMaxW, type Stage } from "./shared";
+import { UtterancesPanel } from "./utterances-panel";
+import { renderPages } from "@/server/actions";
 
 /**
  * 首帧之外的关键帧。每一帧是镜头时间线上的一个画面锚点：结尾那张就是尾帧，也可以放中间的。
@@ -185,6 +187,7 @@ function ExtraRefs({ shot, project, chapter }: { shot: Shot; project: Project; c
 
 /** 按当前状态推算下次出片走的模型与路线，和任务端 planH3 / videoRouteOf 的规则一致 */
 function plannedVideoModel(shot: Shot, project: Project) {
+  if (project.kind === "narrated") return "ffmpeg · 页图 + 配音";
   if (project.videoEngine === "omni") return "Omni 1.1";
   if (shot.frameMode === "text_only") return project.textOnlyRefs && (shot.characters.length || shot.sceneId || shot.propIds?.length) ? "H3 Max · 全能参考" : "H3 Turbo · 文生";
   const route = shot.videoRoute ?? "i2v";
@@ -214,14 +217,16 @@ export function PreviewPane({ shot, ...rest }: { shot: Shot | null } & Omit<Prev
 
 function PreviewBody({ shot, project, chapter, placement, stageRequest }: PreviewProps) {
   const { act: run, pending } = useAct();
-  const [stage, setStage] = useState<Stage>(stageRequest?.stage ?? defaultStage(shot.status));
+  const narrated = project.kind === "narrated";
+  const [stage, setStage] = useState<Stage>(stageRequest?.stage ?? defaultStage(shot.status, narrated));
   useEffect(() => {
     if (stageRequest) setStage(stageRequest.stage);
   }, [stageRequest]);
-  // 这一镜有没有可截帧的预演：有就在首帧页最上面摆截帧器，并在别的页签给个入口
+  // 这一镜有没有可截帧的预演：有就在首帧页最上面摆截帧器，并在别的页签给个入口。说书没有预演
   const [previzRuns, setPrevizRuns] = useState<PrevizRun[] | null>(null);
   useEffect(() => {
     let alive = true;
+    if (narrated) { setPrevizRuns([]); return; }
     listPreviz(chapter.id).then((all) => {
       // 本章所有能播的预演都给：新插的镜头不在任何一条的格子里，也得能从邻近镜头的时段里截。含本镜的排前面
       const ok = all.filter((r) => r.status === "success" && r.url);
@@ -230,7 +235,7 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
     });
     return () => { alive = false; };
     // chapter.updatedAt / 页面每次刷新都重拉一次：预演面板刚出的新条目才能立刻出现在下拉里
-  }, [chapter.id, chapter.updatedAt, shot.id, shot.previzGenerationId, shot.previzTime, chapter]);
+  }, [chapter.id, chapter.updatedAt, shot.id, shot.previzGenerationId, shot.previzTime, chapter, narrated]);
   const [canvas, setCanvas] = useState(false);
   const [timeline, setTimeline] = useState(false);
   const refs = shot.characters.map((c) => {
@@ -248,13 +253,13 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
     <aside className="flex min-h-0 flex-col overflow-y-auto bg-paper">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-paper px-4 py-1.5">
         <div className="flex items-center gap-2">
-          <Mono className="text-[12px]">#{String(shot.index).padStart(2, "0")}</Mono>
+          <Mono className="text-[12px]">{narrated ? `P${String(shot.index).padStart(2, "0")}` : `#${String(shot.index).padStart(2, "0")}`}</Mono>
           <span className="text-[12px] text-ink-2">
-            {shot.shotSize} · {shot.duration}s
+            {narrated ? `${(shot.utterances ?? []).length} 条${shot.videoUrl ? ` · ${shot.duration}s` : ""}` : `${shot.shotSize} · ${shot.duration}s`}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {shot.frameMode === "image" && (
+          {shot.frameMode === "image" && !narrated && (
             <button
               onClick={() => setTimeline(true)}
               className="border border-line px-1.5 py-0.5 text-[11px] text-ink-2 hover:bg-panel hover:text-ink"
@@ -278,7 +283,7 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
       {timeline && <TimelinePanel shot={shot} project={project} chapter={chapter} onClose={() => setTimeline(false)} />}
 
       <nav className="flex border-b border-line bg-paper px-2">
-        {STAGES.map((st) => {
+        {(narrated ? NARRATED_STAGES : STAGES).map((st) => {
           const dot = st.id === "frame" ? fresh?.frame : st.id === "video" ? fresh?.video : undefined;
           return (
             <button
@@ -292,6 +297,7 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
               {st.label}
               {dot === "stale" && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-cinnabar align-middle" />}
               {st.id === "frame" && previzRuns && previzRuns.length > 0 && <span className="ml-1 align-middle font-mono text-[9px] text-cinnabar" title="这一镜有预演可截帧">截</span>}
+              {st.id === "voice" && (shot.utterances ?? []).some((u) => u.status === "generating") && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-indigo align-middle" />}
             </button>
           );
         })}
@@ -321,19 +327,21 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
               ))}
               {refs.length === 0 && <Placeholder ratio="3/2" label="空镜，无人物" className="col-span-2" />}
             </div>
-            {shot.frameMode === "text_only" && <p className="mt-3 border-t border-line pt-3 text-[11.5px] text-ink-3">直出模式：跳过首帧。有人物参考图时走 H3 全能参考（可带人物声音样本），否则走文生视频。</p>}
+            {shot.frameMode === "text_only" && !narrated && <p className="mt-3 border-t border-line pt-3 text-[11.5px] text-ink-3">直出模式：跳过首帧。有人物参考图时走 H3 全能参考（可带人物声音样本），否则走文生视频。</p>}
           </div>
         )}
 
+        {stage === "voice" && <UtterancesPanel shot={shot} project={project} chapter={chapter} />}
+
         {stage === "frame" && (
           <div>
-            {previzRuns && previzRuns.length > 0 && (
+            {!narrated && previzRuns && previzRuns.length > 0 && (
               <PrevizPicker shot={shot} project={project} chapter={chapter} runs={previzRuns} />
             )}
-            {previzRuns && previzRuns.length === 0 && (
+            {!narrated && previzRuns && previzRuns.length === 0 && (
               <p className="mb-2 border border-dashed border-line px-2.5 py-1.5 text-[10.5px] text-ink-3">这一章还没有预演。工具条「预演」把整章闪一遍，回来这里拖进度条截首帧。</p>
             )}
-            {shot.frameMode === "text_only" && (
+            {shot.frameMode === "text_only" && !narrated && (
               <div className="mb-2 flex items-center justify-between gap-2 border border-cinnabar/40 bg-cinnabar-wash px-2.5 py-1.5 text-[11px] text-cinnabar">
                 <span>这一镜是<b>直出</b>模式：出视频时不会用首帧{shot.frameUrl ? "，下面这张只是摆着" : ""}。传首帧 / 用上一镜末帧 / 生成首帧都会自动切到首帧模式。</span>
                 <button className="shrink-0 border border-cinnabar/60 px-1.5 py-0.5 hover:bg-paper" disabled={pending} onClick={() => run(() => setFrameMode(project.id, chapter.id, ids, "image"))}>
@@ -342,7 +350,7 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
               </div>
             )}
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11.5px] tracking-wider text-ink-2">首帧</span>
+              <span className="text-[11.5px] tracking-wider text-ink-2">{narrated ? "页图" : "首帧"}</span>
               <div className="flex items-center gap-1.5">
                 <FreshBadge level={fresh?.frame} />
                 <select
@@ -372,20 +380,22 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
                   <img src={shot.frameUrl} alt="" className={cx("w-full border border-line object-cover", shot.status === "frame_generating" && "opacity-50")} style={{ aspectRatio: frameAspect(project.orientation) }} />
                 </a>
               ) : (
-                <Placeholder ratio={frameAspect(project.orientation)} label={shot.status === "frame_generating" ? "生成中" : "FIRST FRAME · 拖图进来"} />
+                <Placeholder ratio={frameAspect(project.orientation)} label={shot.status === "frame_generating" ? "生成中" : narrated ? "PAGE · 拖图进来" : "FIRST FRAME · 拖图进来"} />
               )}
             </DropZone>
             {shot.status === "frame_generating" && <Tape label="gpt-image-2.5 · 约 40–90 秒" />}
             <div className="mt-1.5 flex justify-end gap-1">
-              <Button size="sm" variant="ghost" disabled={pending} title="不经过生图：直接截上一镜成片的最后一帧当本镜首帧，视频从那个画面接着拍" onClick={() => run(() => useShotPrevLastFrame(project.id, chapter.id, shot.id))}>
-                用上一镜末帧
-              </Button>
-              <FilePick label="上传首帧" onFile={(f) => run(() => uploadShotFrame(project.id, chapter.id, shot.id, fileForm(f)))} />
+              {!narrated && (
+                <Button size="sm" variant="ghost" disabled={pending} title="不经过生图：直接截上一镜成片的最后一帧当本镜首帧，视频从那个画面接着拍" onClick={() => run(() => useShotPrevLastFrame(project.id, chapter.id, shot.id))}>
+                  用上一镜末帧
+                </Button>
+              )}
+              <FilePick label={narrated ? "上传页图" : "上传首帧"} onFile={(f) => run(() => uploadShotFrame(project.id, chapter.id, shot.id, fileForm(f)))} />
             </div>
 
-            <KeyframesBlock shot={shot} project={project} chapter={chapter} onTimeline={() => setTimeline(true)} />
+            {!narrated && <KeyframesBlock shot={shot} project={project} chapter={chapter} onTimeline={() => setTimeline(true)} />}
             <ExtraRefs shot={shot} project={project} chapter={chapter} />
-            <label className="mt-3 flex items-start gap-2 border border-line bg-panel px-2.5 py-2 text-[11.5px]" title="出首帧时把上一镜成片的最后一帧截下来当参考图，人物位置、姿态、光线从那一刻自然延续">
+            {!narrated && <label className="mt-3 flex items-start gap-2 border border-line bg-panel px-2.5 py-2 text-[11.5px]" title="出首帧时把上一镜成片的最后一帧截下来当参考图，人物位置、姿态、光线从那一刻自然延续">
               <input
                 type="checkbox"
                 className="mt-0.5 accent-cinnabar"
@@ -397,17 +407,30 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
                 承接上一镜
                 <Mono className="ml-1.5 text-[10px] text-ink-3">截取上一镜成片末帧作为首帧参考，保证时间上的延续</Mono>
               </span>
-            </label>
+            </label>}
             <div className="mt-3 flex gap-2">
-              <Button className="flex-1" disabled={pending} onClick={() => run(() => generateFrames(project.id, chapter.id, ids))}>
-                只重画首帧
-              </Button>
-              <Button variant="primary" className="flex-1" disabled={pending} onClick={() => run(() => rerunFrom(project.id, chapter.id, shot.id, "frame"))}>
-                重画并出视频
-              </Button>
+              {narrated ? (
+                <>
+                  <Button className="flex-1" disabled={pending} onClick={() => run(() => generateFrames(project.id, chapter.id, ids))}>
+                    {shot.frameUrl ? "重画页图" : "出图"}
+                  </Button>
+                  <Button variant="primary" className="flex-1" disabled={pending} onClick={() => setStage("voice")}>
+                    去配音 →
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button className="flex-1" disabled={pending} onClick={() => run(() => generateFrames(project.id, chapter.id, ids))}>
+                    只重画首帧
+                  </Button>
+                  <Button variant="primary" className="flex-1" disabled={pending} onClick={() => run(() => rerunFrom(project.id, chapter.id, shot.id, "frame"))}>
+                    重画并出视频
+                  </Button>
+                </>
+              )}
             </div>
             <details className="mt-3 border-t border-dashed border-line pt-3">
-              <summary className="cursor-pointer text-[11.5px] tracking-wider text-ink-2">首帧提示词</summary>
+              <summary className="cursor-pointer text-[11.5px] tracking-wider text-ink-2">{narrated ? "画面提示词" : "首帧提示词"}</summary>
               <p className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-ink-2">{shot.framePrompt || "（空）"}</p>
             </details>
             <InputList items={shot.lineage?.frame} />
@@ -418,7 +441,7 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
         {stage === "video" && (
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11.5px] tracking-wider text-ink-2">视频</span>
+              <span className="text-[11.5px] tracking-wider text-ink-2">{narrated ? "页视频" : "视频"}</span>
               <div className="flex items-center gap-1.5">
                 <FreshBadge level={fresh?.video} upstream={videoUpstream} />
                 <span title="下次出片会走的路线（按当前关键帧算），不是上一版用的模型">
@@ -434,24 +457,42 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
             ) : (
               <Placeholder ratio={frameAspect(project.orientation)} label={isGenerating(shot.status) ? STATUS_LABEL[shot.status] : "VIDEO"} className={cx("mx-auto", previewMaxW(project.orientation))} />
             )}
-            {isGenerating(shot.status) && <Tape label={shot.status === "video_queued" ? "排队提交中" : `生成中 · ${latestVideoGen?.progress || "轮询 10s"} · 常见 5–60 分钟`} />}
+            {isGenerating(shot.status) && <Tape label={narrated ? "ffmpeg 渲染中 · 十几秒" : shot.status === "video_queued" ? "排队提交中" : `生成中 · ${latestVideoGen?.progress || "轮询 10s"} · 常见 5–60 分钟`} />}
+            {narrated && !shot.videoUrl && !isGenerating(shot.status) && (
+              <p className="mt-2 border border-dashed border-line px-2.5 py-1.5 text-[10.5px] text-ink-3">页图 + 全部配音齐了，在「配音」页点「渲染页视频」；配音那边配齐了也会自动渲染。</p>
+            )}
+            {narrated && shot.clip?.cues && shot.clip.cues.length > 0 && (
+              <details className="mt-3 border-t border-dashed border-line pt-3">
+                <summary className="cursor-pointer text-[11.5px] tracking-wider text-ink-2">字幕 · {shot.clip.cues.length} 句（TTS 时间戳）</summary>
+                <ol className="mt-2 font-mono text-[10.5px] text-ink-2">
+                  {shot.clip.cues.map((c, i) => (
+                    <li key={i} className="flex gap-2 py-0.5">
+                      <span className="shrink-0 text-ink-3">{c.start.toFixed(2)}–{c.end.toFixed(2)}</span>
+                      <span className="font-sans">{c.text}</span>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            )}
             {previzRuns && previzRuns.length > 0 && (
               <button onClick={() => setStage("frame")} className="mt-2 flex w-full items-center justify-between border border-dashed border-cinnabar/50 bg-cinnabar-wash px-2.5 py-1.5 text-[11px] text-cinnabar hover:bg-paper">
                 <span>这一镜有预演 · 到首帧页拖进度条截首帧</span>
                 <span className="font-mono">→ 首帧</span>
               </button>
             )}
-            <details className="mt-3 border-t border-dashed border-line pt-3">
-              <summary className="cursor-pointer text-[11.5px] tracking-wider text-ink-2">视频提示词</summary>
-              <p className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-ink-2">{shot.videoPrompt || "（空）"}</p>
-            </details>
+            {!narrated && (
+              <details className="mt-3 border-t border-dashed border-line pt-3">
+                <summary className="cursor-pointer text-[11.5px] tracking-wider text-ink-2">视频提示词</summary>
+                <p className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-ink-2">{shot.videoPrompt || "（空）"}</p>
+              </details>
+            )}
             <InputList items={shot.lineage?.video} />
             <VersionStrip
               project={project}
               chapter={chapter}
               kind="视频"
               load={() => listVersions(shot.id, "video")}
-              onGenerate={(keep) => generateVideoVersion(project.id, chapter.id, shot.id, keep)}
+              onGenerate={narrated ? () => renderPages(project.id, chapter.id, [shot.id]).then(() => undefined) : (keep) => generateVideoVersion(project.id, chapter.id, shot.id, keep)}
             />
           </div>
         )}
@@ -475,12 +516,13 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
           <Actions
             status={shot.status}
             frameMode={shot.frameMode}
+            narrated={narrated}
             pending={pending}
             on={{
               approve: () => run(() => approveStoryboard(project.id, chapter.id, ids)),
               frame: () => run(() => generateFrames(project.id, chapter.id, ids)),
               approveFrame: () => run(() => approveFrames(project.id, chapter.id, ids)),
-              video: () => run(() => generateVideos(project.id, chapter.id, ids)),
+              video: () => (narrated ? setStage("voice") : run(() => generateVideos(project.id, chapter.id, ids))),
               accept: () => run(() => acceptVideos(project.id, chapter.id, ids)),
               revert: () => run(() => revertShot(project.id, chapter.id, shot.id)),
               toggleMode: () => run(() => setFrameMode(project.id, chapter.id, ids, shot.frameMode === "image" ? "text_only" : "image")),
@@ -488,9 +530,9 @@ function PreviewBody({ shot, project, chapter, placement, stageRequest }: Previe
           />
         </div>
 
-        {(shot.status === "video_ready" || shot.status === "done") && <RegenerateBox shot={shot} project={project} chapter={chapter} />}
+        {!narrated && (shot.status === "video_ready" || shot.status === "done") && <RegenerateBox shot={shot} project={project} chapter={chapter} />}
 
-        {!isGenerating(shot.status) && <RewriteBox shot={shot} project={project} chapter={chapter} />}
+        {!narrated && !isGenerating(shot.status) && <RewriteBox shot={shot} project={project} chapter={chapter} />}
 
         <div className="mt-4 border-t border-line pt-4">
           <div className="mb-2 flex items-center justify-between">
@@ -592,11 +634,13 @@ function RewriteBox({ shot, project, chapter }: { shot: Shot; project: Project; 
 export function Actions({
   status,
   frameMode,
+  narrated,
   pending,
   on,
 }: {
   status: ShotStatus;
   frameMode: FrameMode;
+  narrated?: boolean;
   pending: boolean;
   on: Record<"approve" | "frame" | "approveFrame" | "video" | "accept" | "revert" | "toggleMode", () => void>;
 }) {
@@ -605,14 +649,14 @@ export function Actions({
     case "draft":
       return (
         <Button variant="primary" {...P} onClick={on.approve}>
-          审定分镜
+          {narrated ? "审定页" : "审定分镜"}
         </Button>
       );
     case "storyboard_approved":
       return frameMode === "image" ? (
         <>
           <Button variant="primary" {...P} onClick={on.frame}>
-            生成首帧
+            {narrated ? "出图" : "生成首帧"}
           </Button>
           <Button variant="ghost" {...P} onClick={on.revert}>
             退回修改
@@ -634,11 +678,11 @@ export function Actions({
       return (
         <>
           <Button variant="primary" {...P} onClick={on.approveFrame}>
-            审定首帧
+            {narrated ? "审定页图" : "审定首帧"}
           </Button>
           <div className="flex gap-2">
             <Button className="flex-1" {...P} onClick={on.frame}>
-              重新生成首帧
+              {narrated ? "重画页图" : "重新生成首帧"}
             </Button>
             <Button variant="ghost" {...P} onClick={on.revert}>
               退回
@@ -650,17 +694,17 @@ export function Actions({
       return (
         <>
           <Button variant="primary" {...P} onClick={on.video}>
-            生成视频
+            {narrated ? "去配音 / 渲染页视频" : "生成视频"}
           </Button>
           <Button variant="ghost" {...P} onClick={on.revert}>
-            退回首帧
+            {narrated ? "退回页图" : "退回首帧"}
           </Button>
         </>
       );
     case "video_queued":
       return <Button disabled>排队中…</Button>;
     case "video_generating":
-      return <Button disabled>视频生成中…</Button>;
+      return <Button disabled>{narrated ? "页视频渲染中…" : "视频生成中…"}</Button>;
     case "video_ready":
       return (
         <>
@@ -669,7 +713,7 @@ export function Actions({
           </Button>
           <div className="flex gap-2">
             <Button className="flex-1" {...P} onClick={on.video}>
-              重新生成
+              {narrated ? "重新渲染" : "重新生成"}
             </Button>
             <Button className="flex-1" {...P} onClick={on.revert}>
               退回

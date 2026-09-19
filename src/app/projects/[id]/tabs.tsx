@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { TabNav } from "@/components/ui";
 
-export function ProjectTabs({ base, counts }: { base: string; counts: { characters: number; chapters: number; music: number; props: number; scenes: number } }) {
+export function ProjectTabs({ base, counts, narrated }: { base: string; narrated?: boolean; counts: { characters: number; chapters: number; music: number; props: number; scenes: number } }) {
   const pathname = usePathname();
   return (
     <TabNav
@@ -15,6 +15,7 @@ export function ProjectTabs({ base, counts }: { base: string; counts: { characte
         { href: `${base}/props`, label: "道具库", count: counts.props },
         { href: `${base}/music`, label: "音乐库", count: counts.music },
         { href: `${base}/chapters`, label: "章节", count: counts.chapters },
+        ...(narrated ? [{ href: `${base}/casting`, label: "选角" }] : []),
         { href: `${base}/timeline`, label: "时间线" },
         { href: `${base}/watch`, label: "成片" },
         { href: `${base}/settings`, label: "项目设置" },

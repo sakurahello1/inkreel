@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { db, parseJson } from "./db";
 import { keyframeLabel, orderKeyframes, videoRouteOf, type VideoRoute } from "@/lib/keyframes";
+import { PAGE_GAP, PAGE_LEAD, PAGE_TAIL } from "@/lib/narrated";
 
 /**
  * 输入指纹：把「生成某个产物时用到的全部输入」压成一个短哈希。
@@ -41,8 +42,13 @@ const ctxInclude = {
     },
   },
   units: { include: { shots: { orderBy: { index: "asc" as const } } }, orderBy: { index: "asc" as const } },
-  shots: { include: { bgmTrack: true, extraRefs: { include: { asset: true }, orderBy: { order: "asc" as const } }, keyframes: true }, orderBy: { index: "asc" as const } },
+  shots: { include: { bgmTrack: true, extraRefs: { include: { asset: true }, orderBy: { order: "asc" as const } }, keyframes: true, utterances: { orderBy: { order: "asc" as const } } }, orderBy: { index: "asc" as const } },
 };
+
+/** 说书的页视频指纹：页图 + 各条音频 + 节奏参数 + 画幅。渲染时存进 Shot.videoInputHash */
+export function pageRenderHash(shot: { frameId: string | null; utterances: Array<{ assetId: string | null }> }, project: { kenBurns: number; orientation: string }) {
+  return hash(["page", shot.frameId, ...shot.utterances.map((u) => u.assetId), PAGE_LEAD, PAGE_GAP, PAGE_TAIL, project.kenBurns, project.orientation]);
+}
 
 export type LineageContext = Prisma.ChapterGetPayload<{ include: typeof ctxInclude }>;
 
@@ -167,6 +173,12 @@ export function videoLineageIn(ctx: LineageContext, shotId: string) {
   const shot = ctx.shots.find((s) => s.id === shotId);
   if (!shot) throw new Error(`镜头不存在：${shotId}`);
   const inputs: LineageInput[] = [];
+  // 说书：页视频 = 页图 + 这一页的配音，没有视频提示词与关键帧那套
+  if (ctx.project.kind === "narrated") {
+    if (shot.frameId) inputs.push({ assetId: shot.frameId, role: "frame", label: "页图" });
+    for (const u of shot.utterances) if (u.assetId) inputs.push({ assetId: u.assetId, role: "voice", label: u.kind === "narration" ? "旁白" : `台词 ${u.order + 1}` });
+    return { inputs, hash: pageRenderHash(shot, ctx.project) };
+  }
   if (shot.frameMode === "image" && shot.frameId) inputs.push({ assetId: shot.frameId, role: "frame", label: "首帧" });
   // 关键帧只在首帧模式下起作用；时间点与各段提示词也进指纹——挪了秒数或改了段提示词，视频就该重出
   const route = videoRouteOf(shot);

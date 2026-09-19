@@ -30,21 +30,49 @@ function parseSize(size: string) {
   return { width: Number(m[1]), height: Number(m[2]) };
 }
 
+/** 连接层抖动（fetch failed / 超时）重试三次；fal 返回了状态码就不重试 */
+async function post(path: string, body: Record<string, unknown>) {
+  let lastErr: unknown;
+  for (let i = 0; i < 3; i++) {
+    try {
+      return await fetch(`https://fal.run/${path}`, {
+        method: "POST",
+        headers: { Authorization: `Key ${key()}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[fal image] attempt ${i + 1} failed: ${err instanceof Error ? err.message : String(err)}`);
+      await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
 async function call(path: string, body: Record<string, unknown>): Promise<ImageResult> {
-  const res = await fetch(`https://fal.run/${path}`, {
-    method: "POST",
-    headers: { Authorization: `Key ${key()}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
+  const res = await post(path, body);
   const raw = await res.text();
   if (!res.ok) throw new Error(`fal image ${res.status}: ${raw.slice(0, 400)}`);
   const data = JSON.parse(raw);
   const item = data.images?.[0];
   if (!item?.url) throw new Error(`fal image: 响应无图: ${raw.slice(0, 200)}`);
-  const r = await fetch(item.url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-  if (!r.ok) throw new Error(`fal image: 下载结果失败 ${r.status}`);
-  const buffer = Buffer.from(await r.arrayBuffer());
+  // 结果已经生成、也已经付费了：下载这一步网络抖动就多试几次，别让钱白花
+  let buffer: Buffer | null = null;
+  let r: Response | null = null;
+  let lastErr: unknown;
+  for (let i = 0; i < 4 && !buffer; i++) {
+    try {
+      r = await fetch(item.url, { signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" });
+      if (!r.ok) throw new Error(`fal image: 下载结果失败 ${r.status}`);
+      buffer = Buffer.from(await r.arrayBuffer());
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[fal image] download attempt ${i + 1} failed: ${err instanceof Error ? err.message : String(err)}`);
+      await new Promise((res) => setTimeout(res, 2000 * (i + 1)));
+    }
+  }
+  if (!buffer || !r) throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
   const mime = String(item.content_type || r.headers.get("content-type") || "image/png").split(";")[0];
   return { buffer, mime, usage: undefined };
 }

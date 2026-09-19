@@ -10,6 +10,7 @@ import { parseJson } from "../db";
 import type { ChatProviderName } from "../providers/chat";
 import type { FrameMode, ShotStatus } from "@/lib/types";
 import { Service } from "./base";
+import { syncUtterances } from "./narrated-service";
 
 type ShotEdit = {
   scene?: string;
@@ -447,10 +448,12 @@ export class ShotService extends Service {
    * 下一镜自己的关键帧时间点整体后移 A 秒。两镜原来的成片都作废——内容变了。
    */
   async mergeWithNext(chapterId: string, shotId: string) {
-    const a = await this.db.shot.findUniqueOrThrow({ where: { id: shotId }, include: { keyframes: true, extraRefs: true } });
+    const a = await this.db.shot.findUniqueOrThrow({ where: { id: shotId }, include: { keyframes: true, extraRefs: true, chapter: { include: { project: { select: { kind: true } } } } } });
     const b = await this.db.shot.findFirst({ where: { chapterId, index: { gt: a.index } }, orderBy: { index: "asc" }, include: { keyframes: true, extraRefs: true } });
     if (!b) throw new Error("本镜已是最后一镜");
-    const total = a.duration + b.duration;
+    const narrated = a.chapter.project.kind === "narrated";
+    // 说书的页时长由配音决定，合并没有 15 秒上限
+    const total = narrated ? a.duration : a.duration + b.duration;
     if (total > 15) throw new Error(`合并后 ${total} 秒，超过模型 15 秒上限`);
     const min = minSegmentSeconds();
     const keepBFrame = Boolean(b.frameId) && a.frameMode === "image" && a.duration >= min && b.duration >= min;
@@ -470,6 +473,7 @@ export class ShotService extends Service {
           sound: join(a.sound, b.sound),
           emotion: join(a.emotion, b.emotion),
           videoPrompt: join(a.videoPrompt, b.videoPrompt),
+          narration: join(a.narration, b.narration),
           characters: JSON.stringify(chars),
           props: JSON.stringify(props),
           dialogue: JSON.stringify(dialogue),
@@ -497,6 +501,8 @@ export class ShotService extends Service {
       await tx.shot.delete({ where: { id: b.id } });
     });
     await this.renumber(chapterId);
+    // 说书：合并后旁白与台词变了，重排这一页要念的条
+    if (a.narration || b.narration || dialogue.length) await syncUtterances(a.id);
     return { merged: b.index, duration: total, keptFrame: keepBFrame };
   }
 

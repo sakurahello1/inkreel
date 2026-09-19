@@ -11,6 +11,10 @@ import { CharacterVoiceJob } from "./character-voice";
 import { ChapterStoryboardJob, ShotRewriteJob } from "./agent-jobs";
 import { ChapterExportJob } from "./chapter-export";
 import { PrevizPollJob, PrevizSubmitJob } from "./chapter-previz";
+import { ChapterPagesJob } from "./chapter-pages";
+import { UtteranceTtsJob } from "./utterance-tts";
+import { PageRenderJob } from "./page-render";
+import { ProjectCastJob } from "./project-cast";
 
 export { enqueue };
 
@@ -34,6 +38,10 @@ const JOBS: Job<never>[] = [
   new ChapterExportJob(),
   new PrevizSubmitJob(),
   new PrevizPollJob(),
+  new ChapterPagesJob(),
+  new UtteranceTtsJob(),
+  new PageRenderJob(),
+  new ProjectCastJob(),
 ] as unknown as Job<never>[];
 
 for (const job of JOBS) registerJob(job.type, job.toHandler());

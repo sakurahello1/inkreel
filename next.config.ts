@@ -5,7 +5,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
-  serverExternalPackages: ["@prisma/client", "sharp"],
+  serverExternalPackages: ["@prisma/client", "sharp", "undici"],
   experimental: {
     serverActions: {
       // Server Action 请求体默认只有 1MB，一张 2K 首帧 PNG 就 4–6MB，上传直接被拦。

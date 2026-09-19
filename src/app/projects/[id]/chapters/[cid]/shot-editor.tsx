@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { VIDEO_ROUTE_LABEL, type Chapter, type DialogueLine, type FrameMode, type Project, type Shot, type ShotCharacter } from "@/lib/types";
-import { createTransitionShot, deleteShot, mergeShotWithNext, setShotBgm, setShotBgmToModel, setShotProps, setShotScene, splitShot, updateShot } from "@/server/actions";
+import { createTransitionShot, deleteShot, mergeShotWithNext, setShotBgm, setShotBgmToModel, setShotProps, setShotScene, splitShot, updatePage, updateShot } from "@/server/actions";
+import { EXPRESSIONS } from "@/lib/narrated";
 import { useAct } from "@/components/use-act";
-import { Avatar, Button, Field, Input, Mono, Stamp, Textarea, cx } from "@/components/ui";
-import { SHOT_SIZES, charName } from "./shared";
+import { Avatar, Button, Field, Input, Mono, Textarea, cx } from "@/components/ui";
+import { SHOT_SIZES } from "./shared";
 
 export function FrameModeToggle({ mode, onToggle }: { mode: FrameMode; onToggle: () => void }) {
   return (
@@ -36,6 +37,7 @@ type ShotForm = {
   sound: string;
   framePrompt: string;
   videoPrompt: string;
+  narration: string;
   characters: ShotCharacter[];
   dialogue: DialogueLine[];
 };
@@ -52,6 +54,7 @@ function formOf(s: Shot): ShotForm {
     sound: s.sound,
     framePrompt: s.framePrompt,
     videoPrompt: s.videoPrompt,
+    narration: s.narration ?? "",
     characters: s.characters,
     dialogue: s.dialogue,
   };
@@ -73,8 +76,22 @@ export function ShotEditor({ shot, project, chapter }: { shot: Shot; project: Pr
 
   const availableChars = project.characters.filter((c) => !form.characters.some((x) => x.characterId === c.id));
   const next = chapter.shots.find((s) => s.index === shot.index + 1) ?? null;
+  const narrated = project.kind === "narrated";
+  const unitWord = narrated ? "页" : "镜";
 
   function save() {
+    if (narrated) {
+      act(() =>
+        updatePage(project.id, chapter.id, shot.id, {
+          narration: form.narration,
+          dialogue: form.dialogue,
+          framePrompt: form.framePrompt,
+          scene: form.scene,
+          characters: form.characters,
+        }),
+      );
+      return;
+    }
     act(() =>
       updateShot(project.id, chapter.id, shot.id, {
         scene: form.scene,
@@ -117,29 +134,33 @@ export function ShotEditor({ shot, project, chapter }: { shot: Shot; project: Pr
             <Input value={form.scene} onChange={set("scene")} />
           </div>
         </Field>
-        <Field label="景别">
-          <select value={form.shotSize} onChange={set("shotSize")} className="w-full rounded-sm border border-line bg-panel px-2 py-1.5 text-[13px]">
-            {SHOT_SIZES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="时长" hint="4–15s">
-          <Input value={form.duration} onChange={set("duration")} />
-        </Field>
-        <Field label="运镜" className="col-span-2">
-          <Input value={form.camera} onChange={set("camera")} />
-        </Field>
-        <Field label="情绪" className="col-span-2">
-          <Input value={form.emotion} onChange={set("emotion")} />
-        </Field>
-        <Field label="动作与走位" className="col-span-2">
-          <Input value={form.action} onChange={set("action")} />
-        </Field>
-        <Field label="环境音 / 音效">
-          <Input value={form.sound} onChange={set("sound")} />
-        </Field>
-        <Field label="BGM" hint="改动立即生效，不退回审定">
+        {!narrated && (
+          <>
+            <Field label="景别">
+              <select value={form.shotSize} onChange={set("shotSize")} className="w-full rounded-sm border border-line bg-panel px-2 py-1.5 text-[13px]">
+                {SHOT_SIZES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="时长" hint="4–15s">
+              <Input value={form.duration} onChange={set("duration")} />
+            </Field>
+            <Field label="运镜" className="col-span-2">
+              <Input value={form.camera} onChange={set("camera")} />
+            </Field>
+            <Field label="情绪" className="col-span-2">
+              <Input value={form.emotion} onChange={set("emotion")} />
+            </Field>
+            <Field label="动作与走位" className="col-span-2">
+              <Input value={form.action} onChange={set("action")} />
+            </Field>
+            <Field label="环境音 / 音效">
+              <Input value={form.sound} onChange={set("sound")} />
+            </Field>
+          </>
+        )}
+        <Field label="BGM" hint="改动立即生效，不退回审定" className={narrated ? "col-span-2" : undefined}>
           <select
             value={shot.bgmTrackId ?? ""}
             onChange={(e) => act(() => setShotBgm(project.id, chapter.id, [shot.id], e.target.value || null))}
@@ -153,7 +174,7 @@ export function ShotEditor({ shot, project, chapter }: { shot: Shot; project: Pr
               </option>
             ))}
           </select>
-          {shot.bgmTrackId && (
+          {shot.bgmTrackId && !narrated && (
             <label className="mt-1.5 flex items-start gap-1.5 text-[11.5px] text-ink-2">
               <input type="checkbox" className="mt-0.5 accent-cinnabar" checked={shot.bgmToModel !== false} onChange={(e) => act(() => setShotBgmToModel(project.id, chapter.id, [shot.id], e.target.checked))} />
               <span>
@@ -254,10 +275,16 @@ export function ShotEditor({ shot, project, chapter }: { shot: Shot; project: Pr
           </div>
         </Field>
 
-        <Field label="台词" className="col-span-4">
+        {narrated && (
+          <Field label="旁白 · 说书人" className="col-span-4" hint="这一页开头念的叙述。保存后自动变成一条待配音">
+            <Textarea rows={3} value={form.narration} onChange={set("narration")} placeholder="说书人的口吻，把这一页的情节讲清楚；对白留给下面的台词" />
+          </Field>
+        )}
+
+        <Field label={narrated ? "台词 · 按念的顺序" : "台词"} className="col-span-4" hint={narrated ? "每句一条配音；表情给 galgame 立绘用" : undefined}>
           <div className="flex flex-col gap-1.5">
             {form.dialogue.map((d, i) => (
-              <div key={i} className="grid grid-cols-[110px_1fr_160px_28px] gap-2">
+              <div key={i} className={cx("grid gap-2", narrated ? "grid-cols-[110px_1fr_120px_96px_28px]" : "grid-cols-[110px_1fr_160px_28px]")}>
                 <select value={d.characterId} onChange={(e) => setForm((f) => ({ ...f, dialogue: f.dialogue.map((x, j) => (j === i ? { ...x, characterId: e.target.value } : x)) }))} className="rounded-sm border border-line bg-panel px-2 py-1.5 text-[13px]">
                   {project.characters.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -267,6 +294,16 @@ export function ShotEditor({ shot, project, chapter }: { shot: Shot; project: Pr
                 </select>
                 <Input value={d.line} onChange={(e) => setForm((f) => ({ ...f, dialogue: f.dialogue.map((x, j) => (j === i ? { ...x, line: e.target.value } : x)) }))} />
                 <Input value={d.tone} placeholder="语气" onChange={(e) => setForm((f) => ({ ...f, dialogue: f.dialogue.map((x, j) => (j === i ? { ...x, tone: e.target.value } : x)) }))} />
+                {narrated && (
+                  <select value={d.expression ?? ""} onChange={(e) => setForm((f) => ({ ...f, dialogue: f.dialogue.map((x, j) => (j === i ? { ...x, expression: e.target.value } : x)) }))} className="rounded-sm border border-line bg-panel px-1.5 py-1.5 text-[12px]" title="表情">
+                    <option value="">表情…</option>
+                    {EXPRESSIONS.map((x) => (
+                      <option key={x} value={x}>
+                        {x}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button type="button" className="text-ink-3 hover:text-cinnabar" onClick={() => setForm((f) => ({ ...f, dialogue: f.dialogue.filter((_, j) => j !== i) }))}>
                   ×
                 </button>
@@ -280,35 +317,43 @@ export function ShotEditor({ shot, project, chapter }: { shot: Shot; project: Pr
           </div>
         </Field>
 
-        {shot.frameMode === "image" && (
-          <Field label="首帧提示词 · gpt-image-2.5" hint="系统自动加画风前缀" className="col-span-2">
-            <Textarea rows={6} value={form.framePrompt} onChange={set("framePrompt")} placeholder={project.orientation === "16:9" ? "场景光线 → 人物姿态表情 → 景别机位 → 横屏构图" : "场景光线 → 人物姿态表情 → 景别机位 → 竖屏构图"} />
+        {narrated ? (
+          <Field label="画面提示词 · gpt-image-2.5" hint="这一页的静态画面；系统自动加画风前缀" className="col-span-4">
+            <Textarea rows={5} value={form.framePrompt} onChange={set("framePrompt")} placeholder="场景光线 → 人物姿态表情 → 景别机位 → 横屏构图" />
           </Field>
+        ) : (
+          <>
+            {shot.frameMode === "image" && (
+              <Field label="首帧提示词 · gpt-image-2.5" hint="系统自动加画风前缀" className="col-span-2">
+                <Textarea rows={6} value={form.framePrompt} onChange={set("framePrompt")} placeholder={project.orientation === "16:9" ? "场景光线 → 人物姿态表情 → 景别机位 → 横屏构图" : "场景光线 → 人物姿态表情 → 景别机位 → 竖屏构图"} />
+              </Field>
+            )}
+            <Field
+              label="视频提示词 · MiniMax H3"
+              hint={shot.frameMode === "image" ? `${VIDEO_ROUTE_LABEL[shot.videoRoute ?? "i2v"]} · 关键帧在右栏首帧页加` : "直出模式（全能参考 / 文生）· 需写全场景与外貌"}
+              className={shot.frameMode === "image" ? "col-span-2" : "col-span-4"}
+            >
+              <Textarea rows={6} value={form.videoPrompt} onChange={set("videoPrompt")} />
+            </Field>
+          </>
         )}
-        <Field
-          label="视频提示词 · MiniMax H3"
-          hint={shot.frameMode === "image" ? `${VIDEO_ROUTE_LABEL[shot.videoRoute ?? "i2v"]} · 关键帧在右栏首帧页加` : "直出模式（全能参考 / 文生）· 需写全场景与外貌"}
-          className={shot.frameMode === "image" ? "col-span-2" : "col-span-4"}
-        >
-          <Textarea rows={6} value={form.videoPrompt} onChange={set("videoPrompt")} />
-        </Field>
       </div>
       <div className="mt-3 flex items-center justify-between">
-        <Mono className="text-[10.5px] text-ink-3">修改字段后保存，状态会退回到上一道闸门之前</Mono>
+        <Mono className="text-[10.5px] text-ink-3">{narrated ? "保存后旁白 / 台词会重排成待配音的条；文字没变的条保留已配好的音" : "修改字段后保存，状态会退回到上一道闸门之前"}</Mono>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="ghost" disabled={pending} onClick={() => act(() => splitShot(project.id, chapter.id, shot.id))}>
-            拆成两镜
+            拆成两{unitWord}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             disabled={pending || !next}
-            title={next ? `把 #${String(next.index).padStart(2, "0")} 并进来：时长相加（≤15s），提示词与台词接起来，它的首帧变成第 ${shot.duration} 秒的关键帧；两镜的成片都作废` : "已是最后一镜"}
-            onClick={() => { if (next && confirm(`把 #${String(next.index).padStart(2, "0")} 并入 #${String(shot.index).padStart(2, "0")}？合并后 ${shot.duration + next.duration}s，两镜现有成片都作废。`)) act(() => mergeShotWithNext(project.id, chapter.id, shot.id)); }}
+            title={!next ? `已是最后一${unitWord}` : narrated ? `把第 ${next.index} 页并进来：旁白与台词接起来，两页的页视频都作废` : `把 #${String(next.index).padStart(2, "0")} 并进来：时长相加（≤15s），提示词与台词接起来，它的首帧变成第 ${shot.duration} 秒的关键帧；两镜的成片都作废`}
+            onClick={() => { if (next && confirm(narrated ? `把第 ${next.index} 页并入第 ${shot.index} 页？两页现有页视频都作废。` : `把 #${String(next.index).padStart(2, "0")} 并入 #${String(shot.index).padStart(2, "0")}？合并后 ${shot.duration + next.duration}s，两镜现有成片都作废。`)) act(() => mergeShotWithNext(project.id, chapter.id, shot.id)); }}
           >
-            与下一镜合并
+            与下一{unitWord}合并
           </Button>
-          <Button
+          {!narrated && <Button
             size="sm"
             variant="ghost"
             disabled={pending || !next || !shot.videoUrl || !next.frameUrl}
@@ -316,13 +361,13 @@ export function ShotEditor({ shot, project, chapter }: { shot: Shot; project: Pr
             onClick={() => { if (confirm(`在 #${String(shot.index).padStart(2, "0")} 之后插入过渡镜头并直接出片？`)) act(() => createTransitionShot(project.id, chapter.id, shot.id)); }}
           >
             ＋ 过渡镜头
-          </Button>
+          </Button>}
           <Button
             size="sm"
             variant="ghost"
             disabled={pending}
             onClick={() => {
-              if (confirm(`删除 #${String(shot.index).padStart(2, "0")}？`)) act(() => deleteShot(project.id, chapter.id, shot.id));
+              if (confirm(narrated ? `删除第 ${shot.index} 页？` : `删除 #${String(shot.index).padStart(2, "0")}？`)) act(() => deleteShot(project.id, chapter.id, shot.id));
             }}
           >
             删除

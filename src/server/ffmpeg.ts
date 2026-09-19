@@ -95,6 +95,51 @@ export async function extractFrameAt(videoFile: string, t: number, outPng: strin
   return outPng;
 }
 
+/**
+ * 说书的一页：一张图 + 若干段配音 → 一段 mp4。图做缓慢推拉（Ken Burns），配音按各自的起点铺进去。
+ * 先按画幅裁满、放大两倍再 zoompan，否则整数像素步进会抖。没有配音的页就是静音的图。
+ */
+export async function renderPageClip(opts: {
+  image: string;
+  /** 按顺序的配音文件；offset 是它在本页里的起点（秒） */
+  audios: Array<{ file: string; offset: number }>;
+  duration: number;
+  width: number;
+  height: number;
+  /** 推拉幅度，0 关；0.06 ≈ 6% 缓慢推近 */
+  kenBurns: number;
+  fps?: number;
+  outFile: string;
+}) {
+  const fps = opts.fps ?? 24;
+  const N = Math.max(fps, Math.round(opts.duration * fps));
+  const kb = Math.max(0, opts.kenBurns);
+  const inputs = ["-loop", "1", "-framerate", String(fps), "-t", String(n(opts.duration)), "-i", opts.image];
+  for (const a of opts.audios) inputs.push("-i", a.file);
+  const filters: string[] = [];
+  filters.push(
+    `[0:v]scale=${opts.width}:${opts.height}:force_original_aspect_ratio=increase,crop=${opts.width}:${opts.height},scale=${opts.width * 2}:${opts.height * 2}:flags=lanczos,` +
+      `zoompan=z='1+${n(kb)}*on/${N}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${opts.width}x${opts.height}:fps=${fps},format=yuv420p,trim=duration=${n(opts.duration)},setpts=PTS-STARTPTS[v]`,
+  );
+  if (opts.audios.length) {
+    const parts: string[] = [];
+    opts.audios.forEach((a, i) => {
+      const ms = Math.round(a.offset * 1000);
+      filters.push(`[${i + 1}:a]aformat=sample_rates=48000:channel_layouts=stereo,adelay=${ms}|${ms}[a${i}]`);
+      parts.push(`[a${i}]`);
+    });
+    filters.push(`${parts.join("")}amix=inputs=${opts.audios.length}:normalize=0:dropout_transition=0,apad,atrim=0:${n(opts.duration)},asetpts=PTS-STARTPTS[a]`);
+  } else {
+    filters.push(`anullsrc=r=48000:cl=stereo,atrim=0:${n(opts.duration)}[a]`);
+  }
+  await runBin(
+    FFMPEG,
+    ["-y", "-hide_banner", "-loglevel", "error", ...inputs, "-filter_complex", filters.join(";"), "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p", "-r", String(fps), "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", "-t", String(n(opts.duration)), opts.outFile],
+    { timeoutMs: 10 * 60 * 1000 },
+  );
+  return opts.outFile;
+}
+
 /** 把视频的人声轨抽成 16k 单声道 mp3，给 ASR 用 */
 export async function extractSpeech(videoFile: string, outFile: string) {
   await runBin(FFMPEG, ["-v", "error", "-y", "-i", videoFile, "-vn", "-ar", "16000", "-ac", "1", outFile], { timeoutMs: 120000 });

@@ -19,6 +19,10 @@ export default async function ProjectsPage() {
         actions={
           <form action={createProject} className="flex items-center gap-2">
             <input name="title" placeholder="项目名" className="h-8 w-40 rounded-sm border border-line bg-panel px-2.5 text-[13px] outline-none focus:border-line-strong" />
+            <select name="kind" defaultValue="drama" className="h-8 rounded-sm border border-line bg-panel px-1.5 text-[12px] outline-none focus:border-line-strong" title="短剧：分镜 → 首帧 → 视频；说书：拆页 → 出图 → 选角 → 配音 → 页视频">
+              <option value="drama">短剧</option>
+              <option value="narrated">说书</option>
+            </select>
             <Button variant="primary" type="submit">
               新建项目
             </Button>
@@ -41,7 +45,10 @@ export default async function ProjectsPage() {
                     <h2 className="truncate font-serif text-[16px] font-bold tracking-wide group-hover:text-cinnabar">{p.title}</h2>
                     <div className="mt-0.5 truncate text-[11.5px] text-ink-2">{p.genre.join(" · ") || "未设置题材"}</div>
                   </div>
-                  <Mono className="shrink-0 text-[10.5px] text-ink-3">{p.orientation}</Mono>
+                  <Mono className="shrink-0 text-[10.5px] text-ink-3">
+                    {p.kind === "narrated" ? <span className="mr-1 border border-line px-1 text-ink-2">说书</span> : null}
+                    {p.orientation}
+                  </Mono>
                 </div>
                 <dl className="mt-2 grid grid-cols-3 gap-1 border-t border-line pt-2 font-mono text-[10.5px]">
                   <div>

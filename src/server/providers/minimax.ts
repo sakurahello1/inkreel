@@ -39,16 +39,31 @@ export async function listSystemVoices(): Promise<MiniMaxVoice[]> {
   return voices;
 }
 
-/** 用系统音色合成一段 mp3，返回二进制。 */
-export async function synthesize(opts: { voiceId: string; text: string; speed?: number; model?: string }): Promise<{ buffer: Buffer; mime: string; durationMs?: number }> {
+export interface TtsTimestamp {
+  text: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * 用系统音色合成一段 mp3。subtitle 为真时顺便要句级时间戳（MiniMax 回一个 JSON 文件的 URL），
+ * 说书模式靠它对字幕，不用再走 Whisper。
+ */
+export async function synthesize(opts: { voiceId: string; text: string; speed?: number; emotion?: string; model?: string; subtitle?: boolean }): Promise<{ buffer: Buffer; mime: string; durationMs?: number; timestamps: TtsTimestamp[] }> {
   const c = cfg();
-  const body = {
+  const voice: Record<string, unknown> = { voice_id: opts.voiceId, speed: opts.speed ?? 1.0, vol: 1.0, pitch: 0 };
+  if (opts.emotion) voice.emotion = opts.emotion;
+  const body: Record<string, unknown> = {
     model: opts.model ?? c.ttsModel,
     text: opts.text,
     stream: false,
-    voice_setting: { voice_id: opts.voiceId, speed: opts.speed ?? 1.0, vol: 1.0, pitch: 0 },
+    voice_setting: voice,
     audio_setting: { sample_rate: 32000, bitrate: 128000, format: "mp3", channel: 1 },
   };
+  if (opts.subtitle) {
+    body.subtitle_enable = true;
+    body.subtitle_type = "sentence";
+  }
   const res = await fetch(`${c.baseUrl}/v1/t2a_v2`, {
     method: "POST",
     headers: { Authorization: `Bearer ${c.apiKey}`, "Content-Type": "application/json" },
@@ -61,7 +76,20 @@ export async function synthesize(opts: { voiceId: string; text: string; speed?: 
   if (d.base_resp && d.base_resp.status_code !== 0) throw new Error(`minimax t2a: ${d.base_resp.status_msg}`);
   const hex: string | undefined = d.data?.audio;
   if (!hex) throw new Error(`minimax t2a: 响应无 audio: ${raw.slice(0, 200)}`);
-  return { buffer: Buffer.from(hex, "hex"), mime: "audio/mpeg", durationMs: d.extra_info?.audio_length };
+  let timestamps: TtsTimestamp[] = [];
+  const subUrl: string | undefined = d.data?.subtitle_file;
+  if (opts.subtitle && subUrl) {
+    try {
+      const j = await fetch(subUrl, { signal: AbortSignal.timeout(30 * 1000) }).then((r) => r.json());
+      const arr = Array.isArray(j) ? j : Array.isArray(j?.subtitles) ? j.subtitles : [];
+      timestamps = arr
+        .map((x: { text?: string; time_begin?: number; time_end?: number }) => ({ text: String(x.text ?? "").trim(), start: Number(x.time_begin ?? 0) / 1000, end: Number(x.time_end ?? 0) / 1000 }))
+        .filter((x: TtsTimestamp) => x.text && x.end > x.start);
+    } catch (e) {
+      console.warn("[minimax] subtitle file unavailable:", e instanceof Error ? e.message : e);
+    }
+  }
+  return { buffer: Buffer.from(hex, "hex"), mime: "audio/mpeg", durationMs: d.extra_info?.audio_length, timestamps };
 }
 
 /** 参考样本统一用这段中性台词，约 12 秒。 */

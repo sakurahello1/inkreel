@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { IMAGE_QUALITY_OPTIONS, imagePrice, type Project } from "@/lib/types";
-import { updateVideoEngine } from "@/server/actions";
+import { PRESENT_STYLES } from "@/lib/narrated";
+import { updateNarratedSettings, updateVideoEngine } from "@/server/actions";
 import { useAct } from "@/components/use-act";
 import { Button, Field, Input, Mono, Section, cx } from "@/components/ui";
 
@@ -45,6 +47,103 @@ export function ProjectSettings({ project }: { project: Project }) {
   const hour = new Date().getHours();
   const disc = cur.discount ? (hour < 9 ? 0.3 : hour >= 22 ? 0.5 : hour >= 18 ? 0.8 : 1) : 1;
   const perSec = cur.base * (cur.mult[resolution] ?? 1) * disc;
+  const narrated = project.kind === "narrated";
+  const [presentStyle, setPresentStyle] = useState(project.presentStyle ?? "subtitle");
+  const [kenBurns, setKenBurns] = useState(project.kenBurns ?? 0.06);
+  const narratedDirty = presentStyle !== (project.presentStyle ?? "subtitle") || kenBurns !== (project.kenBurns ?? 0.06);
+  const speakingChars = project.characters.filter((c) => c.voice?.confirmed);
+
+  if (narrated) {
+    const utts = shots.flatMap((s) => s.utterances ?? []);
+    const chars = utts.reduce((a, u) => a + u.text.length, 0);
+    const pages = shots.length;
+    return (
+      <main className="mx-auto grid max-w-[1500px] grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[1fr_360px]">
+        <Section title="说书 · 展示方式" aside={<Mono className="text-[10.5px] text-ink-3">改动后要重新渲染页视频</Mono>}>
+          <div className="flex flex-col gap-3">
+            {PRESENT_STYLES.map((s) => {
+              const soon = s.id === "galgame";
+              return (
+                <label key={s.id} className={cx("flex gap-3 rounded-sm border p-3", soon ? "cursor-not-allowed opacity-60" : "cursor-pointer", presentStyle === s.id ? "border-cinnabar bg-paper" : "border-line")}>
+                  <input type="radio" name="presentStyle" className="mt-1 accent-cinnabar" disabled={soon} checked={presentStyle === s.id} onChange={() => setPresentStyle(s.id)} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-serif text-[14px] font-bold">{s.label}</span>
+                      {soon && <Mono className="text-[10.5px] text-ink-3">第二期</Mono>}
+                    </div>
+                    <p className="mt-1 text-[11.5px] leading-relaxed text-ink-2">{s.note}</p>
+                  </div>
+                </label>
+              );
+            })}
+            <Field label="页图缓推（Ken Burns）" hint="0 = 静止；0.06 = 整页缓缓推近 6%，让静态图有点呼吸">
+              <div className="flex items-center gap-3">
+                <input type="range" min={0} max={0.15} step={0.01} value={kenBurns} onChange={(e) => setKenBurns(Number(e.target.value))} className="flex-1 accent-cinnabar" />
+                <Mono className="w-12 text-right text-[11.5px]">{kenBurns.toFixed(2)}</Mono>
+              </div>
+            </Field>
+            <div className="flex items-center justify-between border-t border-line pt-3">
+              <Mono className="text-[10.5px] text-ink-3">页节奏：页首 0.5s · 条间 0.45s · 页尾 0.8s</Mono>
+              <Button variant={narratedDirty ? "primary" : "outline"} size="sm" disabled={!narratedDirty || pending} onClick={() => act(() => updateNarratedSettings(project.id, { presentStyle, kenBurns }))}>
+                保存
+              </Button>
+            </div>
+          </div>
+        </Section>
+
+        <div className="flex flex-col gap-6">
+          <Section title="声音" aside={<Link href={`/projects/${project.id}/casting`} className="font-mono text-[10.5px] text-cinnabar hover:underline">去选角 →</Link>}>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[12px]">
+              <dt className="text-ink-3">旁白</dt>
+              <dd>{project.narratorConfirmed ? <span>{(project.narratorVoiceLabel || project.narratorVoiceId || "").replace(/^MiniMax · /, "")}</span> : <span className="text-amber">未确认</span>}</dd>
+              {speakingChars.map((c) => (
+                <div key={c.id} className="contents">
+                  <dt className="text-ink-3">{c.name}</dt>
+                  <dd>{(c.voice?.label || c.voice?.voiceId || "").replace(/^MiniMax · /, "")}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-3 border-t border-line pt-3 text-[11px] leading-relaxed text-ink-3">MiniMax speech-2.8-hd · $100 / 百万字。每个开口的角色和旁白都要在选角页人工确认音色，配音按钮才会亮。</p>
+          </Section>
+
+          <Section title="出图推理等级" aside={<Mono className="text-[10.5px] text-ink-3">gpt-image-2.5 · fal</Mono>}>
+            <div className="flex flex-col gap-2">
+              {IMAGE_QUALITY_OPTIONS.map((q) => (
+                <label key={q} className={cx("flex cursor-pointer items-center justify-between rounded-sm border px-3 py-1.5", quality === q ? "border-cinnabar bg-paper" : "border-line")}>
+                  <span className="flex items-center gap-2">
+                    <input type="radio" name="quality" className="accent-cinnabar" checked={quality === q} onChange={() => setQuality(q)} />
+                    <span className="font-mono text-[12px]">{q}</span>
+                  </span>
+                  <Mono className="text-[10.5px] text-ink-3">${imagePrice(q).toFixed(3)} /张</Mono>
+                </label>
+              ))}
+              <div className="flex justify-end border-t border-line pt-2">
+                <Button variant={quality !== (project.imageQuality ?? "low") ? "primary" : "outline"} size="sm" disabled={quality === (project.imageQuality ?? "low") || pending} onClick={() => act(() => updateVideoEngine(project.id, { imageQuality: quality }))}>
+                  保存
+                </Button>
+              </div>
+            </div>
+          </Section>
+
+          <Section title="全片成本估算">
+            <dl className="grid grid-cols-2 gap-y-2 font-mono text-[12px]">
+              <dt className="text-ink-3">页</dt>
+              <dd>{pages}</dd>
+              <dt className="text-ink-3">配音字数</dt>
+              <dd>{chars}</dd>
+              <dt className="text-ink-3">出图</dt>
+              <dd>$ {(pages * imagePrice(quality)).toFixed(2)}</dd>
+              <dt className="text-ink-3">配音</dt>
+              <dd>$ {((chars * 100) / 1_000_000).toFixed(2)}</dd>
+              <dt className="text-ink-3">合计</dt>
+              <dd className="text-cinnabar">$ {(pages * imagePrice(quality) + (chars * 100) / 1_000_000).toFixed(2)}</dd>
+            </dl>
+            <p className="mt-3 border-t border-line pt-3 text-[11.5px] leading-relaxed text-ink-2">页视频是本机 ffmpeg 合成的，不花钱。选角试听每个角色 3 段样音，几分钱。</p>
+          </Section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto grid max-w-[1500px] grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[1fr_360px]">

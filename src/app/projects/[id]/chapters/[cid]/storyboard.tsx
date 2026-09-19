@@ -10,14 +10,15 @@ import {
   addShotAfter,
   approveFrames,
   approveStoryboard,
-  deleteShot,
+  generateChapterVoices,
   generateFrames,
   generateVideos,
+  renderPages,
   setFrameMode,
   setShotBgm,
   setShotBgmToModel,
-  splitShot,
 } from "@/server/actions";
+import Link from "next/link";
 import { Button, Mono, Stamp, cx } from "@/components/ui";
 import { bgmPlacements } from "./shared";
 import { LeftPane, UnitHeader, ShotRow } from "./left-pane";
@@ -39,12 +40,13 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
   const [previzOpen, setPrevizOpen] = useState(false);
   const [stageRequest, setStageRequest] = useState<{ stage: "reference" | "frame" | "video"; nonce: number } | null>(null);
   const { act, pending } = useAct();
+  const narrated = project.kind === "narrated";
 
   const shots = chapter.shots;
   const current = shots.find((s) => s.id === currentId) ?? null;
   const busy =
     chapter.agentStatus === "running" ||
-    shots.some((s) => isGenerating(s.status) || s.rewriting);
+    shots.some((s) => isGenerating(s.status) || s.rewriting || (s.utterances ?? []).some((u) => u.status === "generating"));
   useAutoRefresh(busy, 5000);
 
   useEffect(() => {
@@ -77,32 +79,58 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
             <input type="checkbox" className="accent-cinnabar" checked={checked.size === shots.length} onChange={() => setChecked(checked.size === shots.length ? new Set() : new Set(shots.map((s) => s.id)))} />
             全选
           </label>
-          <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => approveStoryboard(project.id, chapter.id, ids))}>
-            审定分镜
-          </Button>
-          <Button size="sm" variant="primary" disabled={pending} onClick={() => setPrevizOpen(true)} title="以视频为中心的首帧：把镜头在一条视频里快速闪一遍，再从里面截首帧。勾选了镜头就只预演勾选的">
-            预演
-          </Button>
-          <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => generateFrames(project.id, chapter.id, ids))} title="备用：用 gpt-image 画首帧">
-            生成首帧
-          </Button>
-          <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => approveFrames(project.id, chapter.id, ids))}>
-            审定首帧
-          </Button>
-          <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => generateVideos(project.id, chapter.id, ids))}>
-            生成视频
-          </Button>
-          <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => acceptVideos(project.id, chapter.id, ids))}>
-            验收
-          </Button>
-          <span className="mx-1 h-4 border-l border-line" />
-          <Button size="sm" variant="ghost" disabled={!ids.length || pending} onClick={() => act(() => setFrameMode(project.id, chapter.id, ids, "image"))}>
-            设为首帧
-          </Button>
-          <Button size="sm" variant="ghost" disabled={!ids.length || pending} onClick={() => act(() => setFrameMode(project.id, chapter.id, ids, "text_only"))}>
-            设为直出
-          </Button>
-          <span className="mx-1 h-4 border-l border-line" />
+          {narrated ? (
+            <>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => approveStoryboard(project.id, chapter.id, ids))}>
+                审定页
+              </Button>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => generateFrames(project.id, chapter.id, ids))} title="gpt-image 画这一页的画面">
+                出图
+              </Button>
+              <Link href={`/projects/${project.id}/casting`} className="inline-flex h-7 items-center border border-line px-2 text-[12px] text-ink-2 hover:border-line-strong hover:text-ink" title="配音前的闸门：每个开口的角色和旁白都要人工确认一个音色">
+                选角
+              </Link>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => generateChapterVoices(project.id, chapter.id, { shotIds: ids }))} title="MiniMax TTS。选角没全部确认会拒绝；配齐一页自动渲染页视频">
+                配音
+              </Button>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => renderPages(project.id, chapter.id, ids))} title="图 + 配音 → 页视频（有图且配音齐的页才会渲染）">
+                渲染页
+              </Button>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => acceptVideos(project.id, chapter.id, ids))}>
+                验收
+              </Button>
+              <span className="mx-1 h-4 border-l border-line" />
+            </>
+          ) : (
+            <>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => approveStoryboard(project.id, chapter.id, ids))}>
+                审定分镜
+              </Button>
+              <Button size="sm" variant="primary" disabled={pending} onClick={() => setPrevizOpen(true)} title="以视频为中心的首帧：把镜头在一条视频里快速闪一遍，再从里面截首帧。勾选了镜头就只预演勾选的">
+                预演
+              </Button>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => generateFrames(project.id, chapter.id, ids))} title="备用：用 gpt-image 画首帧">
+                生成首帧
+              </Button>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => approveFrames(project.id, chapter.id, ids))}>
+                审定首帧
+              </Button>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => generateVideos(project.id, chapter.id, ids))}>
+                生成视频
+              </Button>
+              <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => acceptVideos(project.id, chapter.id, ids))}>
+                验收
+              </Button>
+              <span className="mx-1 h-4 border-l border-line" />
+              <Button size="sm" variant="ghost" disabled={!ids.length || pending} onClick={() => act(() => setFrameMode(project.id, chapter.id, ids, "image"))}>
+                设为首帧
+              </Button>
+              <Button size="sm" variant="ghost" disabled={!ids.length || pending} onClick={() => act(() => setFrameMode(project.id, chapter.id, ids, "text_only"))}>
+                设为直出
+              </Button>
+              <span className="mx-1 h-4 border-l border-line" />
+            </>
+          )}
           <select
             value=""
             disabled={!ids.length || pending}
@@ -122,7 +150,7 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
               </option>
             ))}
           </select>
-          <select
+          {!narrated && <select
             value=""
             disabled={!ids.length || pending}
             onChange={(e) => {
@@ -135,7 +163,7 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
             <option value="">BGM 送模型…（默认关）</option>
             <option value="on">送</option>
             <option value="off">不送</option>
-          </select>
+          </select>}
           {checked.size > 0 && <Mono className="text-[10.5px] text-ink-3">已选 {checked.size}</Mono>}
         </div>
         <div className="flex items-center gap-5 font-mono text-[11px] text-ink-2">
@@ -143,7 +171,7 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
             第 {String(chapter.index).padStart(2, "0")} 章 <span className="font-serif font-bold text-ink">{chapter.title}</span>
           </span>
           <span className="border-l border-line pl-5">
-            {doneCount}/{shots.length} 镜
+            {doneCount}/{shots.length} {narrated ? "页" : "镜"}
           </span>
           <span>{formatTimecode(totalDuration)}</span>
           <span>
@@ -182,11 +210,11 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
 
         <div className="min-h-0 overflow-y-auto border-r border-line bg-panel">
           {chapter.agentStatus === "failed" && chapter.agentError && (
-            <div className="border-b border-line bg-cinnabar-wash px-4 py-2 font-mono text-[11px] text-cinnabar">拆镜失败：{chapter.agentError}</div>
+            <div className="border-b border-line bg-cinnabar-wash px-4 py-2 font-mono text-[11px] text-cinnabar">{narrated ? "拆页" : "拆镜"}失败：{chapter.agentError}</div>
           )}
           {groups.map(({ unit, shots: us }) => (
             <section key={unit.id}>
-              <UnitHeader unit={unit} shots={us} />
+              <UnitHeader unit={unit} shots={us} narrated={narrated} />
               <ul>
                 {us.map((s) => (
                   <ShotRow
@@ -218,7 +246,7 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
               onClick={() => act(async () => setCurrentId(await addShotAfter(project.id, chapter.id, shots[shots.length - 1]?.id ?? null)))}
               className="placeholder w-full rounded-sm py-3 text-[12px] tracking-wider text-ink-2 hover:text-cinnabar"
             >
-              ＋ 手动加一镜
+              ＋ 手动加一{narrated ? "页" : "镜"}
             </button>
           </div>
         </div>

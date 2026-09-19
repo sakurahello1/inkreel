@@ -18,7 +18,7 @@ export default async function ProjectLayout({ children, params }: { children: Re
   return (
     <>
       <Slate
-        eyebrow={`Project · ${project.id.slice(-6).toUpperCase()}`}
+        eyebrow={`${project.kind === "narrated" ? "Narrated · 说书" : "Project"} · ${project.id.slice(-6).toUpperCase()}`}
         title={
           <>
             {project.title}
@@ -28,12 +28,12 @@ export default async function ProjectLayout({ children, params }: { children: Re
         meta={[
           ["画幅", project.orientation],
           ["章节", `${project.chapters.length}/${project.targetEpisodes}`],
-          ["镜头", `${done}/${shots}`],
+          [project.kind === "narrated" ? "页" : "镜头", `${done}/${shots}`],
           ["累计费用", `$ ${cost.toFixed(2)}`],
         ]}
         actions={<NewChapterButton projectId={project.id} nextIndex={project.chapters.length + 1} />}
       />
-      <ProjectTabs base={`/projects/${project.id}`} counts={{ characters: project.characters.length, chapters: project.chapters.length, music: project.bgmTracks?.length ?? 0, props: project.props?.length ?? 0, scenes: project.scenes?.length ?? 0 }} />
+      <ProjectTabs base={`/projects/${project.id}`} narrated={project.kind === "narrated"} counts={{ characters: project.characters.length, chapters: project.chapters.length, music: project.bgmTracks?.length ?? 0, props: project.props?.length ?? 0, scenes: project.scenes?.length ?? 0 }} />
       {children}
     </>
   );

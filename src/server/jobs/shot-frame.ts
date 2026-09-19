@@ -10,6 +10,7 @@ import { RefBuilder } from "../core/refs";
 import { framePrompt } from "../prompts";
 import { frameLineage, orderKeyframes } from "../lineage";
 import { loadShotContext, type ShotContext } from "./shot-context";
+import { maybeRenderPage } from "../services/narrated-service";
 import { enqueue } from "./runner";
 import { frameSize } from "./sizes";
 import { normalizeQuality } from "../providers/image-fal";
@@ -112,6 +113,12 @@ export class ShotFrameJob extends ImageJob<Payload, Ctx> {
 
   protected async afterSuccess(ctx: Ctx, payload: Payload) {
     await this.passBaton(payload);
+
+    // 说书：这一页的配音要是早就齐了，图一到就渲染页视频
+    if (ctx.project.kind === "narrated") {
+      await maybeRenderPage(ctx.shot.id);
+      return;
+    }
 
     // 写了提示词的关键帧：它们以首帧为基准，首帧一换就过期，顺手串行重画；要出视频的话由最后一张接着触发
     const kfs = orderKeyframes(ctx.shot.keyframes.filter((k) => k.prompt.trim())).map((k) => k.id);

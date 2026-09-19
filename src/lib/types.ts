@@ -34,6 +34,10 @@ export interface Voice {
   sampleUrl?: string | null;
   status?: GenStatus;
   error?: string;
+  /** 说书选角：人工确认过这个音色 */
+  confirmed?: boolean;
+  speed?: number;
+  emotion?: string;
 }
 
 export interface Character {
@@ -57,6 +61,8 @@ export interface DialogueLine {
   characterId: string;
   line: string;
   tone: string;
+  /** 说书：说这句时的表情（galgame 立绘用） */
+  expression?: string;
 }
 
 export interface GenerationView {
@@ -89,6 +95,24 @@ export const VIDEO_ROUTE_LABEL = {
   segments: "分段首尾帧 · 每段起止钉死后拼接",
 } as const;
 
+/** 说书：一页里要念的一条 */
+export interface Utterance {
+  id: string;
+  order: number;
+  kind: "narration" | "line";
+  characterId: string | null;
+  text: string;
+  tone: string;
+  emotion: string;
+  speed: number;
+  voiceId: string;
+  status: "none" | "generating" | "ready" | "failed";
+  error: string;
+  url: string | null;
+  duration: number | null;
+  cost: number;
+}
+
 export interface Shot {
   id: string;
   index: number;
@@ -113,6 +137,10 @@ export interface Shot {
   sound: string;
   framePrompt: string;
   videoPrompt: string;
+  /** 说书：这一页的旁白 */
+  narration?: string;
+  /** 说书：这一页要念的条（旁白 / 台词），各自的配音状态 */
+  utterances?: Utterance[];
   frameMode: FrameMode;
   status: ShotStatus;
   needsReview?: boolean;
@@ -282,6 +310,13 @@ export interface Project {
   videoPerSecond?: number;
   /** 出图推理等级默认档：low | medium | high | xhigh | max */
   imageQuality?: string;
+  /** 制作类型：短剧 | 说书 */
+  kind?: "drama" | "narrated";
+  presentStyle?: "subtitle" | "galgame";
+  narratorVoiceId?: string | null;
+  narratorVoiceLabel?: string;
+  narratorConfirmed?: boolean;
+  kenBurns?: number;
   styleRefItems?: StyleRef[];
   bgmTracks?: BgmTrack[];
   props?: Prop[];

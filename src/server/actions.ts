@@ -6,6 +6,7 @@ import { BgmService, CharacterService, ProjectService, PropService, SceneService
 import { ChapterService, ShotService, TimelineService, VersionService } from "./services/shot-service";
 import { PrevizService } from "./services/previz-service";
 import { SubtitleService } from "./services/subtitle-service";
+import { NarratedService } from "./services/narrated-service";
 import type { ChatProviderName } from "./providers/chat";
 import type { FrameMode } from "@/lib/types";
 
@@ -29,6 +30,7 @@ const timeline = new TimelineService();
 const versions = new VersionService();
 const previz = new PrevizService();
 const subtitles = new SubtitleService();
+const narrated = new NarratedService();
 
 /* ---------------- 缓存失效目标 ---------------- */
 
@@ -43,12 +45,13 @@ const paths = {
   chapters: (p: string) => `${P(p)}/chapters`,
   chapter: (p: string, c: string) => `${P(p)}/chapters/${c}`,
   timeline: (p: string) => `${P(p)}/timeline`,
+  casting: (p: string) => `${P(p)}/casting`,
 };
 
 /* ---------------- 项目 ---------------- */
 
 export async function createProject(form: FormData) {
-  const p = await projects.create(String(form.get("title") || ""));
+  const p = await projects.create(String(form.get("title") || ""), form.get("kind") === "narrated" ? "narrated" : "drama");
   revalidatePath("/");
   redirect(paths.world(p.id));
 }
@@ -526,4 +529,69 @@ export async function listVersions(shotId: string, kind: "frame" | "video") {
 export async function rerunFrom(projectId: string, chapterId: string, shotId: string, from: "frame" | "video") {
   await versions.rerunFrom(shotId, from);
   revalidatePath(paths.chapter(projectId, chapterId));
+}
+
+
+/* ---------------- 说书 ---------------- */
+
+export async function runPages(projectId: string, chapterId: string, opts: { provider?: ChatProviderName; instruction?: string; sourceText?: string }) {
+  await narrated.runPages(chapterId, opts);
+  revalidatePath(paths.chapter(projectId, chapterId));
+}
+
+export async function updatePage(
+  projectId: string,
+  chapterId: string,
+  shotId: string,
+  data: { narration?: string; dialogue?: Array<{ characterId: string; line: string; tone?: string; expression?: string }>; framePrompt?: string; scene?: string; characters?: Array<{ characterId: string; personaTag: string }> },
+) {
+  await narrated.updatePage(shotId, data);
+  revalidatePath(paths.chapter(projectId, chapterId));
+}
+
+export async function updateUtterance(projectId: string, chapterId: string, utteranceId: string, data: { emotion?: string; speed?: number; voiceId?: string }) {
+  await narrated.updateUtterance(utteranceId, data);
+  revalidatePath(paths.chapter(projectId, chapterId));
+}
+
+export async function generateUtterance(projectId: string, chapterId: string, utteranceId: string) {
+  await narrated.generateUtterance(utteranceId);
+  revalidatePath(paths.chapter(projectId, chapterId));
+}
+
+export async function generateChapterVoices(projectId: string, chapterId: string, opts: { force?: boolean; shotIds?: string[] } = {}) {
+  const n = await narrated.generateChapterVoices(chapterId, opts);
+  revalidatePath(paths.chapter(projectId, chapterId));
+  return n;
+}
+
+export async function renderPages(projectId: string, chapterId: string, shotIds?: string[]) {
+  const n = await narrated.renderPages(chapterId, shotIds);
+  revalidatePath(paths.chapter(projectId, chapterId));
+  return n;
+}
+
+export async function getCastingStatus(projectId: string) {
+  return narrated.castingStatus(projectId);
+}
+
+export async function runCasting(projectId: string, provider?: ChatProviderName) {
+  await narrated.runCasting(projectId, provider);
+  revalidatePath(paths.casting(projectId));
+}
+
+export async function confirmVoice(projectId: string, roleKey: string, voiceId: string, label: string) {
+  await narrated.confirmVoice(projectId, roleKey, voiceId, label);
+  revalidatePath(paths.casting(projectId));
+  revalidatePath(paths.characters(projectId));
+}
+
+export async function unconfirmVoice(projectId: string, roleKey: string) {
+  await narrated.unconfirmVoice(projectId, roleKey);
+  revalidatePath(paths.casting(projectId));
+}
+
+export async function updateNarratedSettings(projectId: string, data: { presentStyle?: string; kenBurns?: number }) {
+  await narrated.updateSettings(projectId, data);
+  revalidatePath(paths.settings(projectId));
 }

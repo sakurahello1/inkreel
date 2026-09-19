@@ -21,11 +21,18 @@ export function previewMaxW(orientation?: string) {
   return orientation === "16:9" ? "max-w-full" : "max-w-[260px]";
 }
 
-export type Stage = "reference" | "frame" | "video";
+export type Stage = "reference" | "frame" | "voice" | "video";
 export const STAGES: Array<{ id: Stage; label: string }> = [
   { id: "reference", label: "参考" },
   { id: "frame", label: "首帧" },
   { id: "video", label: "视频" },
+];
+/** 说书：页图 → 配音 → 页视频 */
+export const NARRATED_STAGES: Array<{ id: Stage; label: string }> = [
+  { id: "reference", label: "参考" },
+  { id: "frame", label: "画面" },
+  { id: "voice", label: "配音" },
+  { id: "video", label: "页视频" },
 ];
 
 export function bgmPlacements(shots: Shot[]) {
@@ -56,9 +63,9 @@ export function charName(project: Project, id: string) {
 /* ================================================================== */
 
 
-export function defaultStage(status: ShotStatus): Stage {
-  if (status === "draft" || status === "storyboard_approved") return "reference";
-  if (status === "frame_generating" || status === "frame_ready" || status === "frame_approved") return "frame";
+export function defaultStage(status: ShotStatus, narrated = false): Stage {
+  if (status === "draft" || status === "storyboard_approved") return narrated ? "frame" : "reference";
+  if (status === "frame_generating" || status === "frame_ready" || status === "frame_approved") return narrated ? "voice" : "frame";
   return "video";
 }
 

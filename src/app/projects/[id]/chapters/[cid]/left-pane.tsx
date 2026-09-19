@@ -9,7 +9,7 @@ import { charName, frameAspect } from "./shared";
 import { FrameModeToggle, ShotEditor } from "./shot-editor";
 
 /** 分镜组只是叙事划分：一段连续的小情节，同场景同时间同光线。它本身没有产物。 */
-export function UnitHeader({ unit, shots }: { unit: Unit; shots: Shot[] }) {
+export function UnitHeader({ unit, shots, narrated }: { unit: Unit; shots: Shot[]; narrated?: boolean }) {
   const dur = shots.reduce((a, s) => a + s.duration, 0);
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-line bg-paper px-4 py-1.5">
@@ -18,7 +18,7 @@ export function UnitHeader({ unit, shots }: { unit: Unit; shots: Shot[] }) {
         <span className="truncate text-[12px] text-ink-2">{unit.summary}</span>
       </div>
       <Mono className="shrink-0 text-[10.5px] text-ink-3">
-        {shots.length} 镜 · {dur}s
+        {shots.length} {narrated ? "页" : "镜"} · {dur}s
       </Mono>
     </header>
   );
@@ -104,18 +104,18 @@ export function LeftPane({
                           key={s.id}
                           type="button"
                           onClick={() => onPickShot(s.id)}
-                          title={`#${String(s.index).padStart(2, "0")} ${s.shotSize} ${s.duration}s\n${s.action || s.scene}`}
+                          title={project.kind === "narrated" ? `第 ${s.index} 页\n${s.narration || s.scene}` : `#${String(s.index).padStart(2, "0")} ${s.shotSize} ${s.duration}s\n${s.action || s.scene}`}
                           className={cx("group relative block overflow-hidden rounded-sm border transition-colors", active ? "border-cinnabar" : "border-line hover:border-line-strong")}
                         >
                           {s.frameUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={s.frameUrl} alt="" className="w-full object-cover" style={{ aspectRatio: frameAspect(project.orientation) }} />
                           ) : (
-                            <div className="placeholder flex items-center justify-center text-[9.5px] text-ink-3" style={{ aspectRatio: frameAspect(project.orientation) }}>{s.frameMode === "text_only" ? "直出" : "无首帧"}</div>
+                            <div className="placeholder flex items-center justify-center text-[9.5px] text-ink-3" style={{ aspectRatio: frameAspect(project.orientation) }}>{project.kind === "narrated" ? "无图" : s.frameMode === "text_only" ? "直出" : "无首帧"}</div>
                           )}
                           <span className="absolute left-0 top-0 bg-paper/85 px-1 font-mono text-[9px] leading-[14px]">#{String(s.index).padStart(2, "0")}</span>
                           {s.videoUrl && <span className="absolute right-0 top-0 bg-moss px-1 font-mono text-[9px] leading-[14px] text-paper">▶</span>}
-                          <span className="absolute inset-x-0 bottom-0 bg-paper/85 text-center font-mono text-[9px] leading-[14px] text-ink-2">{s.duration}s</span>
+                          <span className="absolute inset-x-0 bottom-0 bg-paper/85 text-center font-mono text-[9px] leading-[14px] text-ink-2">{project.kind === "narrated" && !s.videoUrl ? `${(s.utterances ?? []).length} 条` : `${s.duration}s`}</span>
                         </button>
                       );
                     })}
@@ -153,6 +153,7 @@ export function ShotRow({
   onToggleFrameMode: () => void;
 }) {
   const firstLine = shot.dialogue[0];
+  const narrated = project.kind === "narrated";
   return (
     <li className={cx("border-b border-line", active && "bg-paper")}>
       <div onClick={onSelect} className={cx("grid cursor-pointer grid-cols-[28px_40px_36px_70px_1fr_88px_72px_110px] items-center gap-2 px-4 py-2", active && "border-l-2 border-cinnabar pl-[14px]")}>
@@ -160,8 +161,8 @@ export function ShotRow({
         <Mono className="text-[12px] text-ink-2">
           #{String(shot.index).padStart(2, "0")}
         </Mono>
-        <Mono className="text-[11.5px]">{shot.duration}s</Mono>
-        <span className="text-[12px]">{shot.shotSize}</span>
+        <Mono className="text-[11.5px]">{narrated ? (shot.videoUrl ? `${shot.duration}s` : "—") : `${shot.duration}s`}</Mono>
+        <span className="text-[12px]">{narrated ? <Mono className="text-[10.5px] text-ink-3">{(shot.utterances ?? []).length} 条</Mono> : shot.shotSize}</span>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
@@ -170,18 +171,20 @@ export function ShotRow({
               ))}
             </div>
             <span className="truncate text-[12.5px]">
-              {firstLine ? (
+              {narrated && shot.narration ? (
+                <span className="text-ink-2">{shot.narration}</span>
+              ) : firstLine ? (
                 <>
                   <span className="text-ink-2">{charName(project, firstLine.characterId)}：</span>「{firstLine.line}」
                 </>
               ) : (
-                <span className="text-ink-2">{shot.action || shot.scene || "（空镜头）"}</span>
+                <span className="text-ink-2">{shot.action || shot.scene || (narrated ? "（空页）" : "（空镜头）")}</span>
               )}
             </span>
             {shot.bgmTrackName && <Mono className="shrink-0 rounded-sm border border-line px-1 text-[9.5px] text-ink-3">♪ {shot.bgmTrackName}</Mono>}
           </div>
         </div>
-        <FrameModeToggle mode={shot.frameMode} onToggle={onToggleFrameMode} />
+        {narrated ? <span /> : <FrameModeToggle mode={shot.frameMode} onToggle={onToggleFrameMode} />}
         <div className="flex items-center">{shot.needsReview && <Stamp tone="cinnabar">复核</Stamp>}</div>
         <div className="flex justify-end">
           <StatusStamp status={shot.status} withLabel={false} />
