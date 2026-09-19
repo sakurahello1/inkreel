@@ -1,5 +1,7 @@
 # 场记 · AI 短剧生产工作台
 
+**展示页 / Landing page → https://sakurahello1.github.io/short-play/**（中 / EN）
+
 把一章小说变成一集有声动画短剧的单人工作台：**拆镜 → 资产 → 预演截帧 → 出片 → 字幕对齐 → 导出**。
 Next.js 15 + Prisma/SQLite，单进程自带任务队列，一台机器就能跑；图和视频走 fal.ai（gpt-image-2.5 + MiniMax H3），也支持 OpenAI 兼容的中转站。
 
