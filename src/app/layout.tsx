@@ -26,7 +26,7 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "场记 · 短剧工作台",
+  title: "墨影 · Inkreel",
   description: "AI 短剧生产工作台",
 };
 
@@ -42,8 +42,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="mx-auto flex h-12 max-w-[1500px] items-center justify-between px-6">
             <div className="flex items-center gap-8">
               <Link href="/" className="flex items-baseline gap-2">
-                <span className="font-serif text-[20px] font-black leading-none tracking-[0.2em]">场记</span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-2">Short Drama Studio</span>
+                <span className="font-serif text-[20px] font-black leading-none tracking-[0.2em]">墨影</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-2">Inkreel · by updream</span>
               </Link>
               <nav className="flex items-center gap-5 text-[13px]">
                 <Link href="/" className="text-ink hover:text-cinnabar">

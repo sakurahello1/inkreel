@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>场记 · Slate — AI 短剧生产工作台</title>
+<title>墨影 · Inkreel — AI 短剧生产工作台</title>
 <meta name="description" content="把一章小说拍成一集动画短剧：拆镜、资产、预演截帧、出片、字幕对齐、导出。开源，一个人一台机器就能跑。">
-<meta property="og:title" content="场记 · Slate — AI 短剧生产工作台">
+<meta property="og:title" content="墨影 · Inkreel — AI 短剧生产工作台">
 <meta property="og:description" content="把一章小说拍成一集动画短剧。以视频为中心的开源流水线。">
 <meta property="og:image" content="assets/hero.jpg">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='11' width='26' height='18' rx='2' fill='%23b4302b'/%3E%3Cpath d='M3 5h26v6H3z' fill='%231f1b17'/%3E%3Cpath d='M6 5l4 6h5l-4-6zm9 0l4 6h5l-4-6z' fill='%23f4efe6'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='4' width='28' height='24' rx='3' fill='%23f4efe6' stroke='%231f1b17' stroke-width='2'/%3E%3Cpath d='M16 8c-3 5-6 8-6 12a6 6 0 0 0 12 0c0-4-3-7-6-12z' fill='%231f1b17'/%3E%3Crect x='24' y='7' width='3' height='3' fill='%23b4302b'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -20,13 +20,14 @@
 
 <!-- ============ NAV ============ -->
 <nav class="nav" id="nav">
-  <a class="brand" href="#top" aria-label="场记">
-    <svg class="slate-mini" viewBox="0 0 40 34" aria-hidden="true">
-      <g class="slate-arm"><rect x="2" y="2" width="36" height="8" rx="1.5" fill="#1f1b17"/><path d="M6 2l5 8h6l-5-8zm12 0l5 8h6l-5-8zm12 0l4 6.4V2z" fill="#f4efe6"/></g>
-      <rect x="2" y="11" width="36" height="21" rx="2" fill="#b4302b"/>
-      <path d="M7 18h26M7 24h26" stroke="#f4efe6" stroke-width="1.2" opacity=".6"/>
+  <a class="brand" href="#top" aria-label="墨影 Inkreel">
+    <svg class="mark" viewBox="0 0 40 34" aria-hidden="true">
+      <rect x="2" y="2" width="36" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M6 2v30M34 2v30" stroke="currentColor" stroke-width="1" opacity=".35"/>
+      <path class="ink" d="M20 7c-3.6 5.6-7 9-7 13.6a7 7 0 0 0 14 0C27 16 23.6 12.6 20 7z" fill="currentColor"/>
+      <rect x="29" y="5" width="4" height="4" fill="#b4302b"/>
     </svg>
-    <span class="brand-zh">场记</span><span class="brand-en">SLATE</span>
+    <span class="brand-zh">墨影</span><span class="brand-en">INKREEL</span>
   </a>
   <div class="nav-links">
     <a href="#why" data-i="nav.why">为什么</a>
@@ -38,7 +39,7 @@
   </div>
   <div class="nav-right">
     <button class="lang" id="lang" type="button" aria-label="Switch language">EN</button>
-    <a class="gh" href="https://github.com/sakurahello1/short-play" target="_blank" rel="noopener">
+    <a class="gh" href="https://github.com/sakurahello1/inkreel" target="_blank" rel="noopener">
       <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       GitHub
     </a>
@@ -50,12 +51,12 @@
   <div class="hero-bg" id="heroBg"><img src="assets/hero.jpg" alt=""></div>
   <div class="hero-glow" id="heroGlow" aria-hidden="true"></div>
   <div class="hero-inner">
-    <p class="eyebrow mono" data-i="hero.eyebrow">开源 · AI 短剧生产工作台</p>
-    <h1 class="title" aria-label="场记"><span class="ch" style="--i:0">场</span><span class="ch" style="--i:1">记</span><span class="stamp mono" aria-hidden="true">TAKE 1</span></h1>
-    <p class="tagline serif"><span class="type" id="tagline" data-i="hero.tagline">把一章小说，拍成一集短剧。</span><span class="caret"></span></p>
+    <p class="eyebrow mono" data-i="hero.eyebrow">BY UPDREAM · 开源 · AI 短剧生产工作台</p>
+    <h1 class="title" aria-label="墨影"><span class="ch" style="--i:0">墨</span><span class="ch" style="--i:1">影</span><span class="stamp mono" aria-hidden="true">TAKE 1</span></h1>
+    <p class="tagline serif"><span class="type" id="tagline" data-i="hero.tagline">从墨到影：把一章小说，拍成一集短剧。</span><span class="caret"></span></p>
     <p class="lead" data-i="hero.lead">拆镜、资产、预演截帧、出片、字幕对齐、导出——一个人、一台机器、一条流水线。图和视频走 fal.ai 上的 gpt-image-2.5 与 MiniMax H3，也支持任何 OpenAI 兼容接口。</p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/sakurahello1/short-play" target="_blank" rel="noopener"><span data-i="hero.cta1">在 GitHub 上看代码</span> →</a>
+      <a class="btn primary" href="https://github.com/sakurahello1/inkreel" target="_blank" rel="noopener"><span data-i="hero.cta1">在 GitHub 上看代码</span> →</a>
       <a class="btn ghost" href="#why" data-i="hero.cta2">看它怎么工作 ↓</a>
     </div>
     <ul class="hero-meta mono">
@@ -69,7 +70,7 @@
 <section class="reel" id="reel" aria-label="Frames">
   <div class="strip" data-dir="1"><div class="track" id="track1"></div></div>
   <div class="strip" data-dir="-1"><div class="track" id="track2"></div></div>
-  <p class="reel-cap mono" data-i="reel.cap">全部画面由本工具生成 · 《同桌说：你压到我头发了》第一集</p>
+  <p class="reel-cap mono" data-i="reel.cap">全部画面由墨影生成 · 《同桌说：你压到我头发了》第一集</p>
 </section>
 
 <!-- ============ STATS ============ -->
@@ -80,6 +81,12 @@
     <div class="stat" data-reveal style="--i:2"><b class="num" data-n="12">0</b><span data-i="stat.min">分钟成片</span></div>
     <div class="stat" data-reveal style="--i:3"><b class="num" data-n="1">0</b><span data-i="stat.person">人</span></div>
   </div>
+</section>
+
+<!-- ============ INK -> REEL ============ -->
+<section class="band" aria-label="从墨到影">
+  <div class="band-bg" data-parallax="0.22"><img src="assets/inkflow.jpg" alt=""></div>
+  <p class="band-line serif" data-reveal><span class="big" data-i="band.big">从墨到影</span><span class="sub mono" data-i="band.sub">FROM INK TO REEL</span></p>
 </section>
 
 <!-- ============ WHY ============ -->
@@ -315,14 +322,14 @@
       <h2 class="h2 serif" data-reveal data-i="go.title">五分钟跑起来</h2>
       <p class="intro" data-reveal data-i="go.body">需要 ffmpeg / ffprobe（带 libass）。数据库与生成文件放在项目目录外，别让文件监听把生成当成源码变更。</p>
       <div class="cta" data-reveal>
-        <a class="btn primary" href="https://github.com/sakurahello1/short-play" target="_blank" rel="noopener">GitHub →</a>
-        <a class="btn ghost" href="https://github.com/sakurahello1/short-play/blob/master/deploy/README.md" target="_blank" rel="noopener" data-i="go.deploy">部署到服务器</a>
+        <a class="btn primary" href="https://github.com/sakurahello1/inkreel" target="_blank" rel="noopener">GitHub →</a>
+        <a class="btn ghost" href="https://github.com/sakurahello1/inkreel/blob/master/deploy/README.md" target="_blank" rel="noopener" data-i="go.deploy">部署到服务器</a>
       </div>
     </div>
     <div class="code mono" data-reveal>
       <div class="code-bar"><span>bash</span><button id="copy" type="button" data-i="go.copy">复制</button></div>
-<pre id="codeBlock">git clone https://github.com/sakurahello1/short-play.git
-cd short-play &amp;&amp; npm install
+<pre id="codeBlock">git clone https://github.com/sakurahello1/inkreel.git
+cd inkreel &amp;&amp; npm install
 cp .env.example .env      <span class="c"># FAL_KEY …</span>
 npx prisma db push
 npm run dev               <span class="c"># http://localhost:3000</span></pre>
@@ -332,11 +339,11 @@ npm run dev               <span class="c"># http://localhost:3000</span></pre>
 
 <footer class="foot">
   <div class="wrap foot-grid">
-    <div class="brand-foot serif">场记 <span class="mono">SLATE</span></div>
-    <p class="mono" data-i="foot.line">名字来自片场的「场记」：记板、对镜号、管连戏。这个工具干的也是这些事。</p>
+    <div class="brand-foot serif">墨影 <span class="mono">INKREEL · BY UPDREAM</span></div>
+    <p class="mono" data-i="foot.line">墨是小说的字，影是拍出来的片。从墨到影，中间的事都在这里做。</p>
     <div class="foot-links mono">
-      <a href="https://github.com/sakurahello1/short-play" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/sakurahello1/short-play/blob/master/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      <a href="https://github.com/sakurahello1/inkreel" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/sakurahello1/inkreel/blob/master/LICENSE" target="_blank" rel="noopener">MIT License</a>
       <button class="lang-foot" data-lang-toggle type="button">中文 / English</button>
     </div>
   </div>

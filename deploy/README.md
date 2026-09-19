@@ -14,7 +14,7 @@ sudo usermod -aG docker $USER   # 重新登录生效
 ## 2. 拉代码、写环境变量
 
 ```bash
-git clone https://github.com/sakurahello1/short-play.git && cd short-play
+git clone https://github.com/sakurahello1/inkreel.git && cd inkreel
 cp .env.example .env.production
 ```
 
@@ -29,7 +29,7 @@ cp .env.example .env.production
 | `MINIMAX_API_KEY` / `MINIMAX_BASE_URL` | 音色库（国内域名 api.minimaxi.com） |
 | `APP_PASSWORD` | 访问口令，**公网必填** |
 | `AUTH_SECRET` | 随机长字符串，签 cookie 用 |
-| `PUBLIC_BASE_URL` | 对外访问地址，例如 `https://slate.example.com`（视频参考等需要公网 URL 的功能用） |
+| `PUBLIC_BASE_URL` | 对外访问地址，例如 `https://inkreel.example.com`（视频参考等需要公网 URL 的功能用） |
 
 `DATABASE_URL` / `STORAGE_DIR` / `SUBTITLE_FONT` 由 docker-compose.yml 固定指向 `/data`，不用填。
 
@@ -47,7 +47,7 @@ docker compose logs -f app
 ```bash
 sudo apt install -y caddy
 sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
-slate.example.com {
+inkreel.example.com {
     reverse_proxy 127.0.0.1:3000
     request_body {
         max_size 200MB
@@ -73,7 +73,7 @@ docker compose up -d --build
 整个 `./data` 目录（`app.db` + `storage/`）就是全部数据，定期打包即可：
 
 ```bash
-tar czf slate-data-$(date +%F).tgz data
+tar czf inkreel-data-$(date +%F).tgz data
 ```
 
 ## 注意

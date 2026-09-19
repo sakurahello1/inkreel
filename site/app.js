@@ -1,4 +1,4 @@
-/* 场记 · Slate — landing page behaviour. No dependencies. */
+/* 墨影 · Inkreel — landing page behaviour. No dependencies. */
 (() => {
   "use strict";
   const $ = (s, r = document) => r.querySelector(s);
@@ -8,11 +8,12 @@
   /* ------------------------------------------------------------ i18n */
   const T = {
     "nav.why": ["为什么", "Why"], "nav.flow": ["流程", "Pipeline"], "nav.previz": ["预演", "Previz"], "nav.kf": ["关键帧", "Keyframes"], "nav.screens": ["工作台", "Workbench"], "nav.start": ["开始", "Start"],
-    "hero.eyebrow": ["开源 · AI 短剧生产工作台", "OPEN SOURCE · AI SHORT-DRAMA STUDIO"],
-    "hero.tagline": ["把一章小说，拍成一集短剧。", "Turn a chapter into an episode."],
+    "hero.eyebrow": ["BY UPDREAM · 开源 · AI 短剧生产工作台", "BY UPDREAM · OPEN SOURCE · AI SHORT-DRAMA STUDIO"],
+    "hero.tagline": ["从墨到影：把一章小说，拍成一集短剧。", "From ink to reel: turn a chapter into an episode."],
     "hero.lead": ["拆镜、资产、预演截帧、出片、字幕对齐、导出——一个人、一台机器、一条流水线。图和视频走 fal.ai 上的 gpt-image-2.5 与 MiniMax H3，也支持任何 OpenAI 兼容接口。", "Storyboard, assets, previz frame-picking, generation, subtitle alignment, export — one person, one machine, one pipeline. Images and video run on gpt-image-2.5 and MiniMax H3 via fal.ai, or any OpenAI-compatible relay."],
     "hero.cta1": ["在 GitHub 上看代码", "Read the code on GitHub"], "hero.cta2": ["看它怎么工作 ↓", "See how it works ↓"],
-    "reel.cap": ["全部画面由本工具生成 · 《同桌说：你压到我头发了》第一集", "Every frame here was made with Slate · Episode 1 of a test drama"],
+    "reel.cap": ["全部画面由墨影生成 · 《同桌说：你压到我头发了》第一集", "Every frame here was made with Inkreel · Episode 1 of a test drama"],
+    "band.big": ["从墨到影", "From ink to reel"], "band.sub": ["FROM INK TO REEL", "墨影 · 从墨到影"],
     "stat.shots": ["镜头", "shots"], "stat.eps": ["集", "episodes"], "stat.min": ["分钟成片", "minutes of film"], "stat.person": ["人", "person"],
     "why.k": ["问题", "The problem"], "why.title": ["为什么以视频为中心", "Why video-first"],
     "why.intro": ["用图片模型画首帧、再喂给视频模型出片，是最常见的流水线。做了几百个镜头之后，两个问题绕不过去。", "Draw a first frame with an image model, hand it to a video model — that's the usual pipeline. A few hundred shots in, two problems won't go away."],
@@ -63,12 +64,12 @@
     "go.k": ["开始", "Start"], "go.title": ["五分钟跑起来", "Up in five minutes"],
     "go.body": ["需要 ffmpeg / ffprobe（带 libass）。数据库与生成文件放在项目目录外，别让文件监听把生成当成源码变更。", "Needs ffmpeg / ffprobe (with libass). Keep the database and generated files outside the project folder so the file watcher doesn't mistake output for source changes."],
     "go.deploy": ["部署到服务器", "Deploy to a server"], "go.copy": ["复制", "Copy"],
-    "foot.line": ["名字来自片场的「场记」：记板、对镜号、管连戏。这个工具干的也是这些事。", "Named after the slate operator on set — the one who claps the board, numbers the takes and keeps continuity. Same job."],
+    "foot.line": ["墨是小说的字，影是拍出来的片。从墨到影，中间的事都在这里做。", "Ink is the novel; reel is the film. Everything between the two happens here."],
   };
-  const TITLES = ["场记 · Slate — AI 短剧生产工作台", "Slate (场记) — AI short-drama studio"];
+  const TITLES = ["墨影 · Inkreel — AI 短剧生产工作台", "Inkreel (墨影) — AI short-drama studio · by updream"];
   const WIN = [["分镜工作台", "storyboard"], ["预演", "previz"], ["版本", "versions"], ["时间线", "timeline"], ["画布", "canvas"], ["人物库", "characters"], ["场景库", "scenes"], ["导出", "export"]];
 
-  let lang = (new URLSearchParams(location.search).get("lang") || localStorage.getItem("slate.lang") || (navigator.language.startsWith("zh") ? "zh" : "en")) === "en" ? 1 : 0;
+  let lang = (new URLSearchParams(location.search).get("lang") || localStorage.getItem("inkreel.lang") || (navigator.language.startsWith("zh") ? "zh" : "en")) === "en" ? 1 : 0;
   const t = (k) => (T[k] ? T[k][lang] : null);
 
   function applyLang(animate) {
@@ -84,7 +85,7 @@
     setWinCaption(curTab);
     setTlCap(tlStage);
     typewrite($("#tagline"), t("hero.tagline"), animate);
-    try { localStorage.setItem("slate.lang", lang ? "en" : "zh"); } catch {}
+    try { localStorage.setItem("inkreel.lang", lang ? "en" : "zh"); } catch {}
   }
   function toggleLang() { lang = lang ? 0 : 1; applyLang(true); }
   $("#lang").addEventListener("click", toggleLang);
@@ -105,7 +106,7 @@
   }
 
   /* ------------------------------------------------------------ nav / progress / parallax */
-  const nav = $("#nav"), prog = $(".progress i"), heroBg = $("#heroBg"), hero = $(".hero"), glow = $("#heroGlow");
+  const nav = $("#nav"), prog = $(".progress i"), heroBg = $("#heroBg"), hero = $(".hero"), glow = $("#heroGlow"), parallax = $$("[data-parallax]");
   let ticking = false;
   const onScroll = () => {
     if (ticking) return;
@@ -116,6 +117,7 @@
       const h = document.documentElement;
       prog.style.width = ((y / (h.scrollHeight - h.clientHeight)) * 100).toFixed(2) + "%";
       if (!reduce && y < innerHeight * 1.2) heroBg.style.transform = `translateY(${y * 0.28}px)`;
+      if (!reduce) for (const el of parallax) { const r = el.parentElement.getBoundingClientRect(); if (r.bottom > 0 && r.top < innerHeight) el.style.transform = `translateY(${(r.top + r.height / 2 - innerHeight / 2) * -Number(el.dataset.parallax)}px)`; }
       ticking = false;
     });
   };
