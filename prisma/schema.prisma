@@ -71,6 +71,7 @@ model Asset {
   bgmTracks      BgmTrack[]   @relation("BgmAsset")
   propSheets     Prop[]       @relation("PropSheet")
   sceneSheets    Scene[]      @relation("SceneSheet")
+  spriteImages   Sprite[]     @relation("SpriteImage")
   generations    Generation[]
 }
 
@@ -237,8 +238,27 @@ model Persona {
   sheet       Asset?    @relation("PersonaSheet", fields: [sheetId], references: [id], onDelete: SetNull)
   status      String    @default("none") // none | generating | ready | failed
   error       String    @default("")
+  sprites     Sprite[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+/// 说书 galgame 立绘：某个人设在某个表情下的透明背景七分身站姿图。
+/// 由 gpt-image 以三视图为身份参考出图（要求透明背景），没给透明就用 birefnet 抠一遍。
+model Sprite {
+  id         String   @id @default(cuid())
+  personaId  String
+  persona    Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  expression String
+  assetId    String?
+  asset      Asset?   @relation("SpriteImage", fields: [assetId], references: [id], onDelete: SetNull)
+  status     String   @default("none") // none | generating | ready | failed
+  error      String   @default("")
+  prompt     String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([personaId, expression])
 }
 
 model Chapter {
@@ -337,6 +357,8 @@ model Shot {
   clipSubtitle String  @default("") // 留空则用台词
   /// 对齐后的字幕：JSON [{text,start,end}]，时间相对原始成片。空 = 导出时按字数比例铺
   subtitleCues String  @default("")
+  /// 说书 galgame：字幕（对话框）已经烧进页视频，导出时不再叠一层
+  subtitleBurned Boolean @default(false)
   /// 上次对齐时识别出来的话，用来核对念没念对
   asrText      String  @default("")
   fadeIn       Float   @default(0)

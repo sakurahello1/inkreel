@@ -57,6 +57,8 @@ export class ChapterExportJob extends Job<Payload> {
         // 手工字幕优先；留空则回落到台词原文
         subtitleLines: s.clipSubtitle.trim() ? s.clipSubtitle.split(/\r?\n+/) : parseJson<Array<{ line: string }>>(s.dialogue, []).map((d) => d.line),
         cues: parseJson<Array<{ text: string; start: number; end: number }>>(s.subtitleCues, []),
+        // 说书 galgame 页：对话框已经烧在页视频里
+        subtitleBurned: s.subtitleBurned,
       }));
 
       const endLines = ch.endCardText.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);

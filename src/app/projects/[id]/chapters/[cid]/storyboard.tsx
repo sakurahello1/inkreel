@@ -10,6 +10,7 @@ import {
   addShotAfter,
   approveFrames,
   approveStoryboard,
+  generateChapterSprites,
   generateChapterVoices,
   generateFrames,
   generateVideos,
@@ -93,6 +94,11 @@ export function Storyboard({ project, chapter }: { project: Project; chapter: Ch
               <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => generateChapterVoices(project.id, chapter.id, { shotIds: ids }))} title="MiniMax TTS。选角没全部确认会拒绝；配齐一页自动渲染页视频">
                 配音
               </Button>
+              {project.presentStyle === "galgame" && (
+                <Button size="sm" disabled={pending} onClick={() => act(async () => { const n = await generateChapterSprites(project.id, chapter.id); alert(n ? `已排队 ${n} 张立绘（按本章台词的人设 × 表情补齐）` : "本章台词用到的立绘都齐了"); })} title="galgame 立绘：按本章台词里出现的人设 × 表情，把还没有的补齐；人物库里也能逐个看和重画">
+                立绘
+              </Button>
+              )}
               <Button size="sm" disabled={!ids.length || pending} onClick={() => act(() => renderPages(project.id, chapter.id, ids))} title="图 + 配音 → 页视频（有图且配音齐的页才会渲染）">
                 渲染页
               </Button>

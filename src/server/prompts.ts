@@ -61,6 +61,22 @@ export function sheetPrompt(opts: { style: string; name: string; description: st
   return parts.filter(Boolean).join("\n");
 }
 
+/** galgame 立绘：单人七分身站姿、指定表情、透明背景。身份靠三视图参考锚住 */
+export function spritePrompt(opts: { style: string; name: string; description: string; expression: string; refNames: string[] }) {
+  const parts = [
+    stylePrefix(opts.style),
+    `galgame 人物立绘：${opts.name}。${opts.description.trim()}`,
+    `表情：${opts.expression}。表情要明确可辨，但不夸张变形。`,
+    "单人，正面略偏四分之三的站姿，从头顶到膝盖以上的七分身，人物居中、完整、头顶不裁切，身体微微朝向画面左侧，手臂自然。",
+    "纯白色平整背景，没有任何渐变、聚光灯、地面、投影、边框、文字、水印；人物与背景之间轮廓干净利落，便于抠图。",
+    "人物穿着完整、得体，不做任何暴露或性暗示表现。",
+  ];
+  if (opts.refNames.length) parts.push(`参考图依次为：${opts.refNames.join("、")}。`);
+  parts.push("面部特征、骨相、发型、服装必须与人设参考图完全一致，只按要求改变表情与姿态。");
+  if (hasStyleRef(opts.refNames)) parts.push(STYLE_REF_NOTE);
+  return parts.filter(Boolean).join("\n");
+}
+
 /** 道具概念图：单体、干净背景，方便当参考图用 */
 export function propSheetPrompt(opts: { style: string; name: string; description: string; refNames?: string[] }) {
   return [

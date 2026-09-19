@@ -591,6 +591,24 @@ export async function unconfirmVoice(projectId: string, roleKey: string) {
   revalidatePath(paths.casting(projectId));
 }
 
+export async function generateSprites(projectId: string, personaId: string, expressions?: string[], opts: { force?: boolean } = {}) {
+  const n = await narrated.generateSprites(personaId, expressions, opts);
+  revalidatePath(paths.characters(projectId));
+  return n;
+}
+
+export async function generateChapterSprites(projectId: string, chapterId: string) {
+  const n = await narrated.generateChapterSprites(chapterId);
+  revalidatePath(paths.chapter(projectId, chapterId));
+  revalidatePath(paths.characters(projectId));
+  return n;
+}
+
+export async function deleteSprite(projectId: string, spriteId: string) {
+  await narrated.removeSprite(spriteId);
+  revalidatePath(paths.characters(projectId));
+}
+
 export async function updateNarratedSettings(projectId: string, data: { presentStyle?: string; kenBurns?: number }) {
   await narrated.updateSettings(projectId, data);
   revalidatePath(paths.settings(projectId));

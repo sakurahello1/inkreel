@@ -11,7 +11,7 @@ function fmt(d: Date) {
 }
 
 const characterInclude = {
-  personas: { include: { sheet: true }, orderBy: { order: "asc" as const } },
+  personas: { include: { sheet: true, sprites: { include: { asset: true }, orderBy: { expression: "asc" as const } } }, orderBy: { order: "asc" as const } },
   voiceSample: true,
 };
 
@@ -35,6 +35,7 @@ function characterView(c: CharRow): Character {
       sheetUrl: assetUrl(p.sheet?.path),
       status: p.status as Character["personas"][number]["status"],
       error: p.error,
+      sprites: p.sprites.map((s) => ({ id: s.id, expression: s.expression, url: assetUrl(s.asset?.path), status: s.status as GenStatus, error: s.error })),
     })),
     voice: {
       source: c.voiceSource as Character["voice"]["source"],

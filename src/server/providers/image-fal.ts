@@ -78,18 +78,19 @@ async function call(path: string, body: Record<string, unknown>): Promise<ImageR
 }
 
 /** 文生图 */
-export function falGenerateImage(opts: { prompt: string; size: string; quality?: FalQuality }): Promise<ImageResult> {
+export function falGenerateImage(opts: { prompt: string; size: string; quality?: FalQuality; transparent?: boolean }): Promise<ImageResult> {
   return call(`${FAL_IMAGE_MODEL}/text-to-image`, {
     prompt: opts.prompt,
     image_size: parseSize(opts.size),
     quality: opts.quality ?? defaultQuality(),
     output_format: "png",
     num_images: 1,
+    ...(opts.transparent ? { background: "transparent" } : {}),
   });
 }
 
 /** 带参考图 */
-export function falGenerateImageWithRefs(opts: { prompt: string; size: string; refs: ImageRef[]; quality?: FalQuality }): Promise<ImageResult> {
+export function falGenerateImageWithRefs(opts: { prompt: string; size: string; refs: ImageRef[]; quality?: FalQuality; transparent?: boolean }): Promise<ImageResult> {
   if (opts.refs.length === 0) return falGenerateImage(opts);
   return call(`${FAL_IMAGE_MODEL}/edit`, {
     prompt: opts.prompt,
@@ -98,6 +99,7 @@ export function falGenerateImageWithRefs(opts: { prompt: string; size: string; r
     quality: opts.quality ?? defaultQuality(),
     output_format: "png",
     num_images: 1,
+    ...(opts.transparent ? { background: "transparent" } : {}),
   });
 }
 

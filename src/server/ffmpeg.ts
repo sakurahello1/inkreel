@@ -110,17 +110,40 @@ export async function renderPageClip(opts: {
   kenBurns: number;
   fps?: number;
   outFile: string;
+  /** galgame：说话人立绘，在 start–end 之间站在画面一侧（透明 PNG） */
+  sprites?: Array<{ file: string; start: number; end: number; side: "left" | "right" }>;
+  /** galgame：对话框 / 名牌 / 逐字文字的 ASS，最后烧上去 */
+  assFile?: string;
 }) {
   const fps = opts.fps ?? 24;
   const N = Math.max(fps, Math.round(opts.duration * fps));
   const kb = Math.max(0, opts.kenBurns);
   const inputs = ["-loop", "1", "-framerate", String(fps), "-t", String(n(opts.duration)), "-i", opts.image];
   for (const a of opts.audios) inputs.push("-i", a.file);
+  const sprites = opts.sprites ?? [];
+  for (const s of sprites) inputs.push("-i", s.file);
   const filters: string[] = [];
   filters.push(
     `[0:v]scale=${opts.width}:${opts.height}:force_original_aspect_ratio=increase,crop=${opts.width}:${opts.height},scale=${opts.width * 2}:${opts.height * 2}:flags=lanczos,` +
-      `zoompan=z='1+${n(kb)}*on/${N}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${opts.width}x${opts.height}:fps=${fps},format=yuv420p,trim=duration=${n(opts.duration)},setpts=PTS-STARTPTS[v]`,
+      `zoompan=z='1+${n(kb)}*on/${N}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${opts.width}x${opts.height}:fps=${fps},format=yuv420p,trim=duration=${n(opts.duration)},setpts=PTS-STARTPTS[v0]`,
   );
+  let cur = "[v0]";
+  // 立绘：七分身，高度占画面 82%，脚下那截藏进对话框后面
+  const spriteH = Math.round(opts.height * 0.82);
+  const spriteY = Math.round(opts.height - spriteH + opts.height * 0.06);
+  const edge = Math.round(opts.width * 0.07);
+  sprites.forEach((s, i) => {
+    const idx = 1 + opts.audios.length + i;
+    filters.push(`[${idx}:v]scale=-1:${spriteH}:flags=lanczos,format=rgba[s${i}]`);
+    const x = s.side === "right" ? `main_w-overlay_w-${edge}` : `${edge}`;
+    filters.push(`${cur}[s${i}]overlay=x=${x}:y=${spriteY}:enable='between(t,${n(s.start)},${n(s.end)})':format=auto[o${i}]`);
+    cur = `[o${i}]`;
+  });
+  if (opts.assFile) {
+    filters.push(`${cur}subtitles='${filterPath(opts.assFile)}'[vs]`);
+    cur = "[vs]";
+  }
+  filters.push(`${cur}format=yuv420p[v]`);
   if (opts.audios.length) {
     const parts: string[] = [];
     opts.audios.forEach((a, i) => {
@@ -173,6 +196,8 @@ export interface ExportClip {
   subtitleLines: string[];
   /** 对齐好的字幕（时间相对原始成片）。有它就不按字数比例铺 */
   cues?: Array<{ text: string; start: number; end: number }>;
+  /** 字幕已经烧在片段里（说书 galgame 页），导出不再叠 */
+  subtitleBurned?: boolean;
 }
 
 /** 一段 BGM：从曲子的 trackStart 处取 len 秒，铺到成片的 at 秒位置 */
@@ -421,8 +446,9 @@ export async function exportTimeline(opts: ExportOptions) {
       let offset = 0;
       const segments = segs.map((s) => {
         // 对齐时间是相对原始文件的，减掉入点变成相对本段；落在裁掉部分的条目丢弃
-        const cues = opts.subtitles && s.cues?.length ? s.cues.map((c) => ({ text: c.text, start: c.start - s.start, end: c.end - s.start })).filter((c) => c.end > 0.15 && c.start < s.len) : undefined;
-        const seg = { offset, len: s.len, lines: opts.subtitles ? s.subtitleLines : [], cues };
+        const burn = opts.subtitles && !s.subtitleBurned;
+        const cues = burn && s.cues?.length ? s.cues.map((c) => ({ text: c.text, start: c.start - s.start, end: c.end - s.start })).filter((c) => c.end > 0.15 && c.start < s.len) : undefined;
+        const seg = { offset, len: s.len, lines: burn ? s.subtitleLines : [], cues };
         offset += s.len;
         return seg;
       });
@@ -497,4 +523,137 @@ export async function exportTimeline(opts: ExportOptions) {
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * 说书 galgame：对话框 + 名牌 + 逐字打出
+ * ------------------------------------------------------------------ */
+
+export interface GalPiece {
+  text: string;
+  start: number;
+  end: number;
+}
+export interface GalBlock {
+  kind: "narration" | "line";
+  /** 说话人；旁白留空，不出名牌 */
+  name: string;
+  pieces: GalPiece[];
+}
+
+function assKaraokeEscape(ch: string) {
+  return ch === "\\" ? "\\\\" : ch === "{" ? "(" : ch === "}" ? ")" : ch;
+}
+
+/**
+ * 页内时间轴上的对话框字幕。逐字打出用 ASS 卡拉 OK：Secondary 颜色全透明，
+ * 每个字前面挂 {\kN}，到点才从透明翻成白色；打字节奏按这一句真正念的时长摊。
+ * 一条过长就分成几「屏」，每屏最多 maxLines 行。
+ */
+export function buildGalgameAss(blocks: GalBlock[], opts: { fontName: string; width: number; height: number }) {
+  const W = opts.width;
+  const H = opts.height;
+  const font = Math.round(H * 0.04);
+  const nameFont = Math.round(H * 0.032);
+  const boxL = Math.round(W * 0.05);
+  const boxR = Math.round(W * 0.95);
+  const boxT = Math.round(H * 0.7);
+  const boxB = Math.round(H * 0.955);
+  const padX = Math.round(W * 0.03);
+  const padY = Math.round(H * 0.032);
+  const maxLines = 3;
+  const maxChars = Math.max(8, Math.floor((boxR - boxL - padX * 2) / font));
+  const header = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${W}
+PlayResY: ${H}
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Box,${opts.fontName},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+Style: Name,${opts.fontName},${nameFont},&H00FFFFFF,&H00FFFFFF,&H00141210,&H00000000,1,0,0,0,100,100,1,0,1,0,0,5,0,0,0,1
+Style: Text,${opts.fontName},${font},&H00FFFFFF,&HFFFFFFFF,&H00141210,&H00000000,0,0,0,0,100,100,0.5,0,1,0,0,7,0,0,0,1
+Style: Narr,${opts.fontName},${font},&H00E6DED2,&HFFE6DED2,&H00141210,&H00000000,0,1,0,0,100,100,0.5,0,1,0,0,7,0,0,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+  const events: string[] = [];
+  const rect = (x1: number, y1: number, x2: number, y2: number) => `m ${x1} ${y1} l ${x2} ${y1} l ${x2} ${y2} l ${x1} ${y2}`;
+
+  type Screen = { pieces: GalPiece[]; start: number; end: number };
+  for (const block of blocks) {
+    // 先把超过一屏的单条按屏容量再切，时间按字数摊
+    const cap = maxChars * maxLines;
+    const pieces: GalPiece[] = block.pieces.flatMap((p) => {
+      const t = p.text.trim();
+      if (t.length <= cap) return [{ ...p, text: t }];
+      const parts = wrapCjk(t, cap);
+      const total = parts.reduce((a, x) => a + x.length, 0);
+      let st = p.start;
+      return parts.map((x) => {
+        const d = ((p.end - p.start) * x.length) / total;
+        const out = { text: x, start: st, end: st + d };
+        st += d;
+        return out;
+      });
+    });
+    // 再按屏容量分组
+    const screens: Screen[] = [];
+    let cur: GalPiece[] = [];
+    let curLen = 0;
+    for (const p of pieces) {
+      if (cur.length && curLen + p.text.length > cap) {
+        screens.push({ pieces: cur, start: cur[0].start, end: cur[cur.length - 1].end });
+        cur = [];
+        curLen = 0;
+      }
+      cur.push(p);
+      curLen += p.text.length;
+    }
+    if (cur.length) screens.push({ pieces: cur, start: cur[0].start, end: cur[cur.length - 1].end });
+
+    screens.forEach((sc, si) => {
+      const showFrom = Math.max(0, sc.start - 0.12);
+      const next = screens[si + 1];
+      const showTo = next ? Math.max(sc.end, next.start - 0.02) : sc.end + 0.45;
+      const t0 = assTime(showFrom);
+      const t1 = assTime(showTo);
+      // 对话框：深色 78% 不透明；顶上一条朱砂细线
+      events.push(`Dialogue: 0,${t0},${t1},Box,,0,0,0,,{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c&H141210&\\1a&H38&}${rect(boxL, boxT, boxR, boxB)}{\\p0}`);
+      events.push(`Dialogue: 1,${t0},${t1},Box,,0,0,0,,{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c&H2B3FC8&\\1a&H00&}${rect(boxL, boxT, boxR, boxT + Math.max(3, Math.round(H * 0.004)))}{\\p0}`);
+      if (block.kind === "line" && block.name) {
+        const plateH = Math.round(nameFont * 1.6);
+        const plateW = Math.round(nameFont * (block.name.length + 1.6));
+        const px = boxL + Math.round(padX * 0.6);
+        const py = boxT - Math.round(plateH * 0.62);
+        events.push(`Dialogue: 2,${t0},${t1},Box,,0,0,0,,{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c&H2B3FC8&\\1a&H00&}${rect(px, py, px + plateW, py + plateH)}{\\p0}`);
+        events.push(`Dialogue: 3,${t0},${t1},Name,,0,0,0,,{\\an5\\pos(${px + Math.round(plateW / 2)},${py + Math.round(plateH / 2)})}${assEscape(block.name)}`);
+      }
+      // 逐字：卡拉 OK 时间从本事件开始起算
+      let cursor = showFrom;
+      let text = "";
+      let col = 0;
+      for (const p of sc.pieces) {
+        const gapCs = Math.max(0, Math.round((p.start - cursor) * 100));
+        if (gapCs > 0) text += `{\\k${gapCs}}`;
+        const chars = [...p.text];
+        const perChar = Math.max(1, Math.floor(((p.end - p.start) * 100 * 0.85) / Math.max(1, chars.length)));
+        for (const ch of chars) {
+          if (col >= maxChars) {
+            text += "\\N";
+            col = 0;
+          }
+          text += `{\\k${perChar}}${assKaraokeEscape(ch)}`;
+          col += 1;
+        }
+        cursor = Math.max(cursor, p.start + (perChar * chars.length) / 100);
+      }
+      const style = block.kind === "line" ? "Text" : "Narr";
+      events.push(`Dialogue: 4,${t0},${t1},${style},,0,0,0,,{\\an7\\pos(${boxL + padX},${boxT + padY})}${text}`);
+    });
+  }
+  return header + events.join("\n") + "\n";
 }

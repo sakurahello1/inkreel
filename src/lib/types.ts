@@ -24,6 +24,8 @@ export interface Persona {
   sheetUrl?: string | null;
   status?: GenStatus;
   error?: string;
+  /** 说书 galgame 立绘：每个表情一张透明背景站姿图 */
+  sprites?: Array<{ id: string; expression: string; url: string | null; status?: GenStatus; error?: string }>;
 }
 
 export interface Voice {

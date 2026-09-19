@@ -4,6 +4,7 @@ import { db, parseJson } from "../db";
 import { hash } from "../lineage";
 import { absPath, assetUrl } from "../storage";
 import { Service } from "./base";
+import { DEFAULT_EXPRESSION, EXPRESSIONS, estimatePageSeconds } from "@/lib/narrated";
 
 /* ------------------------------------------------------------------ *
  * 说书模式：页 → 条（utterance）→ 配音 → 页视频
@@ -95,6 +96,9 @@ export class NarratedService extends Service {
       data: { ...rest, ...(dialogue ? { dialogue: JSON.stringify(dialogue) } : {}), ...(characters ? { characters: JSON.stringify(characters) } : {}), needsReview: false },
     });
     await syncUtterances(shotId);
+    // 还没渲染过的页：时长按文字重新估一遍
+    const s = await this.db.shot.findUniqueOrThrow({ where: { id: shotId } });
+    if (!s.videoId) await this.db.shot.update({ where: { id: shotId }, data: { duration: estimatePageSeconds(s.narration, parseJson<DialogueItem[]>(s.dialogue, []).map((d) => d.line)) } });
   }
 
   updateUtterance(id: string, data: { emotion?: string; speed?: number; voiceId?: string }) {
@@ -228,6 +232,60 @@ export class NarratedService extends Service {
       n += 1;
     }
     return n;
+  }
+
+  /* ---------------- 立绘（galgame） ---------------- */
+
+  /** 给一个人设出一批表情的立绘；不传表情就是全部八个。已就绪的跳过，force 重画 */
+  async generateSprites(personaId: string, expressions?: string[], opts: { force?: boolean } = {}) {
+    const list = expressions?.length ? expressions : [...EXPRESSIONS];
+    const persona = await this.db.persona.findUniqueOrThrow({ where: { id: personaId }, include: { sprites: true } });
+    if (!persona.sheetId) throw new Error("这个人设还没有三视图，先生成三视图");
+    const ids: string[] = [];
+    for (const e of list) {
+      const cur = persona.sprites.find((s) => s.expression === e);
+      if (cur && !opts.force && (cur.status === "ready" || cur.status === "generating") && (cur.assetId || cur.status === "generating")) continue;
+      const row = cur
+        ? await this.db.sprite.update({ where: { id: cur.id }, data: { status: "generating", error: "" } })
+        : await this.db.sprite.create({ data: { personaId, expression: e, status: "generating" } });
+      ids.push(row.id);
+    }
+    if (!ids.length) return 0;
+    const [head, ...rest] = ids;
+    await enqueue("persona.sprite", { spriteId: head, rest });
+    return ids.length;
+  }
+
+  /** 按这一章台词实际用到的（人设 × 表情）补齐立绘。开口的人物没三视图的会跳过 */
+  async generateChapterSprites(chapterId: string) {
+    const chapter = await this.db.chapter.findUniqueOrThrow({
+      where: { id: chapterId },
+      include: { shots: true, project: { include: { characters: { include: { personas: { include: { sprites: true } } } } } } },
+    });
+    const need = new Map<string, Set<string>>();
+    for (const s of chapter.shots) {
+      const chars = parseJson<Array<{ characterId: string; personaTag: string }>>(s.characters, []);
+      for (const d of parseJson<DialogueItem[]>(s.dialogue, [])) {
+        if (!d.line.trim()) continue;
+        const ch = chapter.project.characters.find((c) => c.id === d.characterId);
+        if (!ch) continue;
+        const tag = chars.find((x) => x.characterId === ch.id)?.personaTag;
+        const persona = ch.personas.find((p) => p.tag === tag) ?? ch.personas[0];
+        if (!persona?.sheetId) continue;
+        const set = need.get(persona.id) ?? new Set<string>();
+        set.add(d.expression || DEFAULT_EXPRESSION);
+        need.set(persona.id, set);
+      }
+    }
+    let n = 0;
+    for (const [personaId, exprs] of need) n += await this.generateSprites(personaId, [...exprs]);
+    return n;
+  }
+
+  async removeSprite(spriteId: string) {
+    const s = await this.db.sprite.findUniqueOrThrow({ where: { id: spriteId } });
+    await this.db.sprite.delete({ where: { id: spriteId } });
+    if (s.assetId) await this.dropAudio(s.assetId);
   }
 
   /** 删掉某条的音频文件（弃用重来时） */

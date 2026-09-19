@@ -15,6 +15,7 @@ import { ChapterPagesJob } from "./chapter-pages";
 import { UtteranceTtsJob } from "./utterance-tts";
 import { PageRenderJob } from "./page-render";
 import { ProjectCastJob } from "./project-cast";
+import { PersonaSpriteJob } from "./persona-sprite";
 
 export { enqueue };
 
@@ -42,6 +43,7 @@ const JOBS: Job<never>[] = [
   new UtteranceTtsJob(),
   new PageRenderJob(),
   new ProjectCastJob(),
+  new PersonaSpriteJob(),
 ] as unknown as Job<never>[];
 
 for (const job of JOBS) registerJob(job.type, job.toHandler());

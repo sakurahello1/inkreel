@@ -95,6 +95,8 @@ export async function generateImageWithRefs(opts: {
   size: string;
   refs: ImageRef[];
   quality?: ImageQuality;
+  /** 要透明背景（只有 fal 的 gpt-image-2.5 认；中转站忽略） */
+  transparent?: boolean;
 }): Promise<ImageResult> {
   if (imageBackend() === "fal") return falGenerateImageWithRefs(opts);
   if (opts.refs.length === 0) return generateImage(opts);

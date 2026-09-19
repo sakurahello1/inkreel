@@ -46,8 +46,13 @@ const ctxInclude = {
 };
 
 /** 说书的页视频指纹：页图 + 各条音频 + 节奏参数 + 画幅。渲染时存进 Shot.videoInputHash */
-export function pageRenderHash(shot: { frameId: string | null; utterances: Array<{ assetId: string | null }> }, project: { kenBurns: number; orientation: string }) {
-  return hash(["page", shot.frameId, ...shot.utterances.map((u) => u.assetId), PAGE_LEAD, PAGE_GAP, PAGE_TAIL, project.kenBurns, project.orientation]);
+export function pageRenderHash(
+  shot: { frameId: string | null; utterances: Array<{ assetId: string | null }> },
+  project: { kenBurns: number; orientation: string; presentStyle?: string },
+  /** galgame：用到的立绘资产 id，换了立绘页视频就过期 */
+  extra: string[] = [],
+) {
+  return hash(["page", shot.frameId, ...shot.utterances.map((u) => u.assetId), PAGE_LEAD, PAGE_GAP, PAGE_TAIL, project.kenBurns, project.orientation, project.presentStyle ?? "subtitle", ...extra]);
 }
 
 export type LineageContext = Prisma.ChapterGetPayload<{ include: typeof ctxInclude }>;

@@ -23,6 +23,8 @@ export interface ImagePlan {
   refNames: string[];
   /** 推理等级（fal gpt-image-2.5）。不传用项目默认 */
   quality?: ImageQuality;
+  /** 要透明背景（立绘） */
+  transparent?: boolean;
 }
 
 export abstract class ImageJob<P, C> extends Job<P> {
@@ -57,6 +59,10 @@ export abstract class ImageJob<P, C> extends Job<P> {
    * 没有任务在跑，也没有东西会来救它们。
    */
   protected async afterFailure(_ctx: C, _payload: P): Promise<void> {}
+  /** 存盘前对产物做加工（抠图、裁边…）。默认原样 */
+  protected async transform(buffer: Buffer, mime: string, _ctx: C): Promise<{ buffer: Buffer; mime: string }> {
+    return { buffer, mime };
+  }
 
   async run(payload: P, _jobCtx: JobContext) {
     const ctx = await this.load(payload);
@@ -74,10 +80,11 @@ export abstract class ImageJob<P, C> extends Job<P> {
     });
 
     try {
-      const result = await generateImageWithRefs({ prompt: plan.prompt, size: plan.size, refs: plan.refs, quality: plan.quality });
+      const result = await generateImageWithRefs({ prompt: plan.prompt, size: plan.size, refs: plan.refs, quality: plan.quality, transparent: plan.transparent });
+      const cooked = await this.transform(result.buffer, result.mime, ctx);
       const asset = await saveAsset({
-        buffer: result.buffer,
-        mime: result.mime,
+        buffer: cooked.buffer,
+        mime: cooked.mime,
         kind: "image",
         projectId: this.projectId(ctx),
         folder: this.folder,

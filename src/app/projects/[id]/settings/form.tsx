@@ -62,7 +62,7 @@ export function ProjectSettings({ project }: { project: Project }) {
         <Section title="说书 · 展示方式" aside={<Mono className="text-[10.5px] text-ink-3">改动后要重新渲染页视频</Mono>}>
           <div className="flex flex-col gap-3">
             {PRESENT_STYLES.map((s) => {
-              const soon = s.id === "galgame";
+              const soon = false;
               return (
                 <label key={s.id} className={cx("flex gap-3 rounded-sm border p-3", soon ? "cursor-not-allowed opacity-60" : "cursor-pointer", presentStyle === s.id ? "border-cinnabar bg-paper" : "border-line")}>
                   <input type="radio" name="presentStyle" className="mt-1 accent-cinnabar" disabled={soon} checked={presentStyle === s.id} onChange={() => setPresentStyle(s.id)} />
@@ -82,6 +82,11 @@ export function ProjectSettings({ project }: { project: Project }) {
                 <Mono className="w-12 text-right text-[11.5px]">{kenBurns.toFixed(2)}</Mono>
               </div>
             </Field>
+            {presentStyle === "galgame" && (
+              <p className="border border-dashed border-line px-2.5 py-1.5 text-[11px] leading-relaxed text-ink-3">
+                对话框式：说话人的立绘在「人物库」每个人设下生成（透明背景七分身，每个表情一张）；章节页工具条的「立绘」按本章台词自动补齐。没有立绘的人物只出对话框和名牌。改了展示方式要重新「渲染页」。
+              </p>
+            )}
             <div className="flex items-center justify-between border-t border-line pt-3">
               <Mono className="text-[10.5px] text-ink-3">页节奏：页首 0.5s · 条间 0.45s · 页尾 0.8s</Mono>
               <Button variant={narratedDirty ? "primary" : "outline"} size="sm" disabled={!narratedDirty || pending} onClick={() => act(() => updateNarratedSettings(project.id, { presentStyle, kenBurns }))}>

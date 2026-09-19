@@ -7,7 +7,9 @@ import {
   createPersona,
   deleteCharacter,
   deletePersona,
+  deleteSprite,
   generatePersonaSheet,
+  generateSprites,
   getVoiceOptions,
   setCharacterSystemVoice,
   updateCharacter,
@@ -18,6 +20,7 @@ import {
 import { useAutoRefresh } from "@/components/use-auto-refresh";
 import { useAct } from "@/components/use-act";
 import { Avatar, Button, Field, Input, Mono, Placeholder, Section, Stamp, Textarea, cx } from "@/components/ui";
+import { EXPRESSIONS } from "@/lib/narrated";
 
 export function CharacterWorkbench({ project, initialId }: { project: Project; initialId: string | null }) {
   const [currentId, setCurrentId] = useState<string | null>(initialId ?? project.characters[0]?.id ?? null);
@@ -31,7 +34,7 @@ export function CharacterWorkbench({ project, initialId }: { project: Project; i
   }, [project.characters, currentId]);
 
   const current = project.characters.find((c) => c.id === currentId) ?? null;
-  const busy = project.characters.some((c) => c.voice.status === "generating" || c.personas.some((p) => p.status === "generating"));
+  const busy = project.characters.some((c) => c.voice.status === "generating" || c.personas.some((p) => p.status === "generating" || (p.sprites ?? []).some((sp) => sp.status === "generating")));
   useAutoRefresh(busy, 4000);
 
   return (
@@ -93,14 +96,14 @@ export function CharacterWorkbench({ project, initialId }: { project: Project; i
         </div>
       </aside>
 
-      {current ? <CharacterDetail key={current.id} projectId={project.id} character={current} /> : <Placeholder className="min-h-[400px]" label="EMPTY" hint="左侧新增一个人物" />}
+      {current ? <CharacterDetail key={current.id} projectId={project.id} character={current} narrated={project.kind === "narrated"} /> : <Placeholder className="min-h-[400px]" label="EMPTY" hint="左侧新增一个人物" />}
     </main>
   );
 }
 
 /* ------------------------------------------------------------------ */
 
-function CharacterDetail({ projectId, character: c }: { projectId: string; character: Character }) {
+function CharacterDetail({ projectId, character: c, narrated }: { projectId: string; character: Character; narrated?: boolean }) {
   const [form, setForm] = useState({ name: c.name, age: c.age, role: c.role, personality: c.personality, catchphrase: c.catchphrase, relations: c.relations });
   const { act: start, pending } = useAct();
   const dirty = useMemo(() => Object.entries(form).some(([k, v]) => v !== (c as unknown as Record<string, string>)[k]), [form, c]);
@@ -193,7 +196,7 @@ function CharacterDetail({ projectId, character: c }: { projectId: string; chara
         )}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {c.personas.map((p) => (
-            <PersonaCard key={p.id} projectId={projectId} persona={p} />
+            <PersonaCard narrated={narrated} key={p.id} projectId={projectId} persona={p} />
           ))}
           {c.personas.length === 0 && !addingPersona && (
             <button type="button" onClick={() => setAddingPersona(true)} className="placeholder flex min-h-[200px] flex-col items-center justify-center gap-2 rounded-sm text-ink-2 hover:text-cinnabar xl:col-span-2">
@@ -212,7 +215,7 @@ function CharacterDetail({ projectId, character: c }: { projectId: string; chara
 
 /* ------------------------------------------------------------------ */
 
-function PersonaCard({ projectId, persona: p }: { projectId: string; persona: Persona }) {
+function PersonaCard({ projectId, persona: p, narrated }: { projectId: string; persona: Persona; narrated?: boolean }) {
   const [tag, setTag] = useState(p.tag);
   const [description, setDescription] = useState(p.description);
   const [prompt, setPrompt] = useState(p.prompt);
@@ -291,8 +294,67 @@ function PersonaCard({ projectId, persona: p }: { projectId: string; persona: Pe
             删除
           </Button>
         </div>
+        {narrated && <SpriteStrip projectId={projectId} persona={p} />}
       </div>
     </article>
+  );
+}
+
+/**
+ * 说书 galgame 立绘：一个人设 × 八个表情，透明背景七分身。
+ * 以三视图为身份参考出图；没三视图不能出。点某个表情可以单独重画。
+ */
+function SpriteStrip({ projectId, persona: p }: { projectId: string; persona: Persona }) {
+  const { act: start, pending } = useAct();
+  const sprites = p.sprites ?? [];
+  const ready = sprites.filter((s) => s.status === "ready" && s.url).length;
+  const generating = sprites.some((s) => s.status === "generating");
+  return (
+    <div className="mt-3 border-t border-dashed border-line pt-3">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[11.5px] tracking-wider text-ink-2">立绘 <span className="text-ink-3">· galgame 对话框式用</span></span>
+        <div className="flex items-center gap-2">
+          <Mono className="text-[10px] text-ink-3">{ready}/{EXPRESSIONS.length} 表情{generating ? " · 生成中" : ""}</Mono>
+          <Button size="sm" variant={ready ? "outline" : "primary"} disabled={pending || generating || !p.sheetReady} title={p.sheetReady ? "gpt-image 透明背景，一张约 $0.005；没给透明自动抠图" : "先生成三视图"} onClick={() => start(() => generateSprites(projectId, p.id))}>
+            {ready ? "补齐缺的表情" : "生成全部立绘"}
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-8 gap-1.5">
+        {EXPRESSIONS.map((e) => {
+          const sp = sprites.find((s) => s.expression === e);
+          const busy = sp?.status === "generating";
+          return (
+            <div key={e} className="min-w-0">
+              <button
+                type="button"
+                disabled={pending || busy || !p.sheetReady}
+                title={sp?.url ? `${e} · 点击重画` : busy ? "生成中" : `生成「${e}」`}
+                onClick={() => { if (!sp?.url || confirm(`重画「${e}」立绘？`)) start(() => generateSprites(projectId, p.id, [e], { force: true })); }}
+                className={cx("block w-full overflow-hidden border bg-[repeating-conic-gradient(#ddd_0%_25%,#f4f1ea_0%_50%)] bg-[length:12px_12px]", sp?.status === "failed" ? "border-cinnabar/60" : sp?.url ? "border-line hover:border-cinnabar" : "border-dashed border-line-strong")}
+                style={{ aspectRatio: "2 / 3" }}
+              >
+                {sp?.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={sp.url} alt={e} className={cx("h-full w-full object-contain", busy && "opacity-40")} />
+                ) : (
+                  <span className="flex h-full items-center justify-center text-[10px] text-ink-3">{busy ? "…" : "＋"}</span>
+                )}
+              </button>
+              <div className="mt-0.5 flex items-center justify-between">
+                <span className="text-[10.5px] text-ink-2">{e}</span>
+                {sp?.url && (
+                  <button type="button" className="text-[10px] text-ink-3 hover:text-cinnabar" title="删除这张立绘" onClick={() => { if (confirm(`删除「${e}」立绘？`)) start(() => deleteSprite(projectId, sp.id)); }}>
+                    ×
+                  </button>
+                )}
+              </div>
+              {sp?.status === "failed" && sp.error && <p className="truncate text-[9.5px] text-cinnabar" title={sp.error}>{sp.error}</p>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

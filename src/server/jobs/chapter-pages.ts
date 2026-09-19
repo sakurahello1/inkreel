@@ -3,6 +3,7 @@ import { Job, errText } from "../core/job";
 import { runPagesAgent } from "../agent/pages";
 import type { ChatProviderName } from "../providers/chat";
 import { syncUtterances } from "../services/narrated-service";
+import { estimatePageSeconds } from "@/lib/narrated";
 
 type Payload = { chapterId: string; provider?: string; instruction?: string };
 
@@ -51,7 +52,7 @@ export class ChapterPagesJob extends Job<Payload> {
               scene: pg.scene,
               sceneId: matchScene(pg.scene),
               shotSize: "中景",
-              duration: 5,
+              duration: estimatePageSeconds(pg.narration, pg.dialogue.map((d) => d.line)),
               characters: JSON.stringify(pg.characters),
               props: JSON.stringify(pg.propIds),
               dialogue: JSON.stringify(pg.dialogue),
