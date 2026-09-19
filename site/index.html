@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>场记 · Slate — AI 短剧生产工作台</title>
+<meta name="description" content="把一章小说拍成一集动画短剧：拆镜、资产、预演截帧、出片、字幕对齐、导出。开源，一个人一台机器就能跑。">
+<meta property="og:title" content="场记 · Slate — AI 短剧生产工作台">
+<meta property="og:description" content="把一章小说拍成一集动画短剧。以视频为中心的开源流水线。">
+<meta property="og:image" content="assets/hero.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='11' width='26' height='18' rx='2' fill='%23b4302b'/%3E%3Cpath d='M3 5h26v6H3z' fill='%231f1b17'/%3E%3Cpath d='M6 5l4 6h5l-4-6zm9 0l4 6h5l-4-6z' fill='%23f4efe6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div class="progress" aria-hidden="true"><i></i></div>
+
+<!-- ============ NAV ============ -->
+<nav class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="场记">
+    <svg class="slate-mini" viewBox="0 0 40 34" aria-hidden="true">
+      <g class="slate-arm"><rect x="2" y="2" width="36" height="8" rx="1.5" fill="#1f1b17"/><path d="M6 2l5 8h6l-5-8zm12 0l5 8h6l-5-8zm12 0l4 6.4V2z" fill="#f4efe6"/></g>
+      <rect x="2" y="11" width="36" height="21" rx="2" fill="#b4302b"/>
+      <path d="M7 18h26M7 24h26" stroke="#f4efe6" stroke-width="1.2" opacity=".6"/>
+    </svg>
+    <span class="brand-zh">场记</span><span class="brand-en">SLATE</span>
+  </a>
+  <div class="nav-links">
+    <a href="#why" data-i="nav.why">为什么</a>
+    <a href="#flow" data-i="nav.flow">流程</a>
+    <a href="#previz" data-i="nav.previz">预演</a>
+    <a href="#keyframes" data-i="nav.kf">关键帧</a>
+    <a href="#screens" data-i="nav.screens">工作台</a>
+    <a href="#start" data-i="nav.start">开始</a>
+  </div>
+  <div class="nav-right">
+    <button class="lang" id="lang" type="button" aria-label="Switch language">EN</button>
+    <a class="gh" href="https://github.com/sakurahello1/short-play" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero" id="top">
+  <div class="hero-bg" id="heroBg"><img src="assets/hero.jpg" alt=""></div>
+  <div class="hero-glow" id="heroGlow" aria-hidden="true"></div>
+  <div class="hero-inner">
+    <p class="eyebrow mono" data-i="hero.eyebrow">开源 · AI 短剧生产工作台</p>
+    <h1 class="title" aria-label="场记"><span class="ch" style="--i:0">场</span><span class="ch" style="--i:1">记</span><span class="stamp mono" aria-hidden="true">TAKE 1</span></h1>
+    <p class="tagline serif"><span class="type" id="tagline" data-i="hero.tagline">把一章小说，拍成一集短剧。</span><span class="caret"></span></p>
+    <p class="lead" data-i="hero.lead">拆镜、资产、预演截帧、出片、字幕对齐、导出——一个人、一台机器、一条流水线。图和视频走 fal.ai 上的 gpt-image-2.5 与 MiniMax H3，也支持任何 OpenAI 兼容接口。</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/sakurahello1/short-play" target="_blank" rel="noopener"><span data-i="hero.cta1">在 GitHub 上看代码</span> →</a>
+      <a class="btn ghost" href="#why" data-i="hero.cta2">看它怎么工作 ↓</a>
+    </div>
+    <ul class="hero-meta mono">
+      <li>Next.js 15</li><li>fal.ai</li><li>MiniMax H3</li><li>gpt-image-2.5</li><li>ffmpeg</li><li>MIT</li>
+    </ul>
+  </div>
+  <a class="scroll-cue mono" href="#reel" aria-hidden="true"><span></span>SCROLL</a>
+</header>
+
+<!-- ============ FILMSTRIP ============ -->
+<section class="reel" id="reel" aria-label="Frames">
+  <div class="strip" data-dir="1"><div class="track" id="track1"></div></div>
+  <div class="strip" data-dir="-1"><div class="track" id="track2"></div></div>
+  <p class="reel-cap mono" data-i="reel.cap">全部画面由本工具生成 · 《同桌说：你压到我头发了》第一集</p>
+</section>
+
+<!-- ============ STATS ============ -->
+<section class="stats" aria-label="Numbers">
+  <div class="wrap stats-grid">
+    <div class="stat" data-reveal style="--i:0"><b class="num" data-n="81">0</b><span data-i="stat.shots">镜头</span></div>
+    <div class="stat" data-reveal style="--i:1"><b class="num" data-n="4">0</b><span data-i="stat.eps">集</span></div>
+    <div class="stat" data-reveal style="--i:2"><b class="num" data-n="12">0</b><span data-i="stat.min">分钟成片</span></div>
+    <div class="stat" data-reveal style="--i:3"><b class="num" data-n="1">0</b><span data-i="stat.person">人</span></div>
+  </div>
+</section>
+
+<!-- ============ WHY ============ -->
+<section class="why" id="why">
+  <div class="wrap">
+    <p class="kicker mono" data-reveal>01 · <span data-i="why.k">问题</span></p>
+    <h2 class="h2 serif" data-reveal data-i="why.title">为什么以视频为中心</h2>
+    <p class="intro" data-reveal data-i="why.intro">用图片模型画首帧、再喂给视频模型出片，是最常见的流水线。做了几百个镜头之后，两个问题绕不过去。</p>
+
+    <div class="why-grid">
+      <article class="card split-card" data-reveal style="--i:0">
+        <div class="split" id="split">
+          <img class="split-under" src="assets/split.jpg" alt="">
+          <div class="split-over"><img src="assets/split.jpg" alt=""></div>
+          <div class="split-handle"><i></i></div>
+          <span class="split-tag mono l">2D · CEL</span><span class="split-tag mono r">3D · ANIME</span>
+          <input type="range" min="0" max="100" value="50" aria-label="divider">
+        </div>
+        <div class="card-body">
+          <h3 class="serif" data-i="why.b.title">赛璐璐会横跳</h3>
+          <p data-i="why.b.body">同一条视频里，模型会在 2D 平涂和 3D 渲染之间反复切换。只有三维动画那一档是稳的。</p>
+          <p class="sol mono" data-i="why.b.sol">→ 风格写死为动漫 3D，每条提示词最前面都带</p>
+          <p class="hint mono" data-i="why.b.hint">拖动分界线</p>
+        </div>
+      </article>
+
+      <article class="card drift-card" data-reveal style="--i:1">
+        <div class="drift" aria-hidden="true">
+          <svg viewBox="0 0 520 260" class="drift-svg">
+            <defs>
+              <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5 0 10z" fill="#9a9087"/></marker>
+              <marker id="arR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5 0 10z" fill="#b4302b"/></marker>
+            </defs>
+            <!-- old path -->
+            <g class="row old">
+              <text x="0" y="48" class="lbl mono" data-i="drift.old">以前</text>
+              <rect x="70" y="24" width="96" height="44" rx="3" class="box"/><text x="118" y="51" class="t" data-i="drift.img">图片模型</text>
+              <path d="M170 46 C 200 46, 210 30, 240 46" class="wire wobble" marker-end="url(#ar)"/>
+              <rect x="246" y="24" width="76" height="44" rx="3" class="box frame"/><text x="284" y="51" class="t" data-i="drift.frame">首帧</text>
+              <path d="M326 46 C 356 46, 366 62, 396 46" class="wire wobble d2" marker-end="url(#ar)"/>
+              <rect x="402" y="24" width="96" height="44" rx="3" class="box"/><text x="450" y="51" class="t" data-i="drift.vid">视频模型</text>
+              <text x="284" y="92" class="lbl mono drift-l" data-i="drift.drift1">漂一次</text>
+              <text x="450" y="92" class="lbl mono drift-l" data-i="drift.drift2">再漂一次</text>
+            </g>
+            <!-- new path -->
+            <g class="row new">
+              <text x="0" y="188" class="lbl mono red" data-i="drift.new">现在</text>
+              <rect x="70" y="164" width="96" height="44" rx="3" class="box red"/><text x="118" y="191" class="t" data-i="drift.vid">视频模型</text>
+              <text x="118" y="228" class="lbl mono" data-i="drift.previz">预演</text>
+              <path d="M170 186 L 240 186" class="wire straight" marker-end="url(#arR)"/>
+              <rect x="246" y="164" width="76" height="44" rx="3" class="box frame red"/><text x="284" y="191" class="t" data-i="drift.pick">截帧</text>
+              <path d="M326 186 L 396 186" class="wire straight d2" marker-end="url(#arR)"/>
+              <rect x="402" y="164" width="96" height="44" rx="3" class="box red"/><text x="450" y="191" class="t" data-i="drift.vid">视频模型</text>
+              <text x="450" y="228" class="lbl mono red" data-i="drift.zero">零漂移</text>
+            </g>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3 class="serif" data-i="why.a.title">图是图，视频是视频</h3>
+          <p data-i="why.a.body">同一套提示词，图片模型画出来的人和视频模型渲染出来的人就是两个人。每镜首帧各画一次，进了视频模型再各漂一次，一集下来人物不像同一个。</p>
+          <p class="sol mono" data-i="why.a.sol">→ 首帧从视频模型自己的预演里截</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PIPELINE ============ -->
+<section class="flow" id="flow">
+  <div class="flow-bg" aria-hidden="true"><img src="assets/sheet.jpg" alt=""></div>
+  <div class="wrap">
+    <p class="kicker mono" data-reveal>02 · <span data-i="flow.k">流程</span></p>
+    <h2 class="h2 serif" data-reveal data-i="flow.title">六步流水线</h2>
+    <div class="steps" id="steps">
+      <svg class="steps-line" viewBox="0 0 1200 40" preserveAspectRatio="none" aria-hidden="true"><path id="stepsPath" d="M0 20 H1200"/></svg>
+      <div class="step" data-reveal style="--i:0">
+        <div class="ico"><svg viewBox="0 0 48 48"><rect x="8" y="8" width="32" height="32" rx="2"/><path d="M8 20h32M8 28h32M20 8v32"/></svg></div>
+        <b class="serif" data-i="s1.t">拆镜</b><p data-i="s1.b">Agent 把原文拆成分镜组和镜头：景别、运镜、台词、时长、两套提示词。</p>
+      </div>
+      <div class="step" data-reveal style="--i:1">
+        <div class="ico"><svg viewBox="0 0 48 48"><circle cx="24" cy="17" r="7"/><path d="M10 42c0-8 6-13 14-13s14 5 14 13"/><path d="M36 10l4-4M40 6v4M40 6h-4"/></svg></div>
+        <b class="serif" data-i="s2.t">资产</b><p data-i="s2.b">人设三视图、场景图、道具图、画风参考。人物按 tag 分版本。</p>
+      </div>
+      <div class="step" data-reveal style="--i:2">
+        <div class="ico"><svg viewBox="0 0 48 48"><rect x="6" y="14" width="36" height="20" rx="2"/><path d="M6 20h36M6 28h36M14 14v20M24 14v20M34 14v20"/><path d="M20 40l4 4 4-4"/></svg></div>
+        <b class="serif" data-i="s3.t">预演</b><p data-i="s3.b">全能参考把整章镜头闪一遍，每镜不到一秒。首帧从这里人工截。</p>
+      </div>
+      <div class="step" data-reveal style="--i:3">
+        <div class="ico"><svg viewBox="0 0 48 48"><rect x="6" y="12" width="36" height="24" rx="2"/><path d="M20 18l12 6-12 6z" fill="currentColor" stroke="none"/></svg></div>
+        <b class="serif" data-i="s4.t">出片</b><p data-i="s4.b">首帧、首尾帧、分段拼接。关键帧钉死起止，模型只补运动。</p>
+      </div>
+      <div class="step" data-reveal style="--i:4">
+        <div class="ico"><svg viewBox="0 0 48 48"><path d="M8 24h4l3-8 4 16 4-12 3 6 3-2h11"/><rect x="10" y="34" width="28" height="6" rx="1"/></svg></div>
+        <b class="serif" data-i="s5.t">字幕对齐</b><p data-i="s5.b">Whisper 字级时间戳把台词对到真正开口的那一秒。</p>
+      </div>
+      <div class="step" data-reveal style="--i:5">
+        <div class="ico"><svg viewBox="0 0 48 48"><path d="M10 36V12l14 12L10 36z" fill="currentColor" stroke="none"/><rect x="28" y="12" width="4" height="24"/><rect x="36" y="12" width="4" height="24"/></svg></div>
+        <b class="serif" data-i="s6.t">导出</b><p data-i="s6.b">ffmpeg 拼接、裁切、烧字幕、BGM 连续段落、片尾字卡。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PREVIZ DEMO ============ -->
+<section class="previz" id="previz">
+  <div class="wrap previz-grid">
+    <div class="previz-text">
+      <p class="kicker mono" data-reveal>03 · <span data-i="pv.k">预演</span></p>
+      <h2 class="h2 serif" data-reveal data-i="pv.title">预演截帧</h2>
+      <p class="intro" data-reveal data-i="pv.body">一条 15 秒的视频装下 20 个镜头。拖动进度条，找到最清楚的一帧，采用——它天然就是视频模型自己的世界观，之后出片零漂移。</p>
+      <ul class="bullets" data-reveal>
+        <li data-i="pv.l1">参考图：人设三视图 ≤5、场景图 ≤2、道具图 ≤2，按本批实际出场自动挑</li>
+        <li data-i="pv.l2">每镜 0.5 / 0.75 / 1 秒，一条最长 15 秒，超了自动分批</li>
+        <li data-i="pv.l3">截帧一律人工：进度条自动跳回上次截的位置</li>
+        <li data-i="pv.l4">截下来的帧走版本库，和 gpt-image 画的、上传的并列</li>
+      </ul>
+      <div class="tray" id="tray"><span class="mono tray-l" data-i="pv.tray">已截首帧</span><div class="tray-items"></div></div>
+    </div>
+    <div class="monitor" data-reveal>
+      <div class="mon-head mono"><span>PREVIZ · EP.01 · 17 SHOTS · 14.4s</span><span class="rec"><i></i>REC</span></div>
+      <div class="mon-screen" id="monScreen">
+        <img id="monImg" src="assets/previz/p00.jpg" alt="">
+        <div class="mon-stamp mono" id="monStamp"><span data-i="pv.stampL">✓ 首帧</span></div>
+        <div class="mon-readout mono"><span id="monShot">#01</span><span id="monTime">0.31s</span></div>
+      </div>
+      <div class="scrub">
+        <div class="scrub-strip" id="scrubStrip"></div>
+        <input type="range" id="scrub" min="0" max="16" value="0" step="1" aria-label="scrub">
+      </div>
+      <div class="mon-foot">
+        <span class="hint mono" id="pvHint" data-i="pv.hint">试试拖动 ↑</span>
+        <button class="btn primary sm" id="adopt" type="button" data-i="pv.btn">采用当前帧为首帧</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ KEYFRAMES ============ -->
+<section class="kf" id="keyframes">
+  <div class="kf-bg" aria-hidden="true"><img src="assets/desk.jpg" alt=""></div>
+  <div class="wrap">
+    <p class="kicker mono light" data-reveal>04 · <span data-i="kf.k">出片</span></p>
+    <h2 class="h2 serif light" data-reveal data-i="kf.title">关键帧与分段</h2>
+    <p class="intro light" data-reveal data-i="kf.body">只有首帧时，结束画面全看模型发挥。加一张尾帧，起止都钉死；加中间关键帧，就按帧切成几段，每段一次首尾帧生成，出完拼接——接缝是同一张图，画面连续。</p>
+    <div class="tl" id="tl" data-reveal>
+      <div class="tl-cap mono" id="tlCap" data-i="kf.c1">① 只有首帧</div>
+      <div class="tl-track">
+        <div class="tl-seg s1"><span class="mono" data-i="kf.seg1">段 1</span></div>
+        <div class="tl-seg s2"><span class="mono" data-i="kf.seg2">段 2</span></div>
+        <div class="tl-dot first" style="--x:0%"><img src="assets/previz/p03.jpg" alt=""><b class="mono" data-i="kf.first">首帧 · 0s</b></div>
+        <div class="tl-dot mid" style="--x:46%"><img src="assets/previz/p04.jpg" alt=""><b class="mono" data-i="kf.mid">关键帧 · 6s</b></div>
+        <div class="tl-dot last" style="--x:100%"><img src="assets/previz/p05.jpg" alt=""><b class="mono" data-i="kf.last">尾帧 · 13s</b></div>
+        <div class="tl-ticks mono"><span>0s</span><span>3s</span><span>6s</span><span>9s</span><span>13s</span></div>
+      </div>
+      <div class="tl-modes mono">
+        <span class="m1" data-i="kf.m1">首帧模式 · Turbo</span>
+        <span class="m2" data-i="kf.m2">首尾帧 · 起止钉死</span>
+        <span class="m3" data-i="kf.m3">分段 · 2 × 首尾帧 → 拼接</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LINEAGE ============ -->
+<section class="lineage" id="lineage">
+  <div class="wrap lineage-grid">
+    <div>
+      <p class="kicker mono" data-reveal>05 · <span data-i="ln.k">版本</span></p>
+      <h2 class="h2 serif" data-reveal data-i="ln.title">版本与血缘</h2>
+      <p class="intro" data-reveal data-i="ln.body">每一次生成都是一个版本，能回看、能切回、能弃。每个产物记着生成那一刻全部输入的指纹——改了上游不用传播，重算一遍就知道谁过期了。点一个上游节点试试。</p>
+      <div class="ln-ctl" data-reveal>
+        <span class="hint mono" data-i="ln.hint">点击节点 = 改了它</span>
+        <button class="btn ghost sm" id="regen" type="button" data-i="ln.regen">重新生成 ↻</button>
+      </div>
+    </div>
+    <div class="graph" data-reveal>
+      <svg viewBox="0 0 560 340" id="graph">
+        <defs><marker id="ga" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5 0 10z" fill="#9a9087"/></marker></defs>
+        <g class="edges">
+          <path data-e="sheet-frame" d="M126 60 C 190 60, 190 130, 236 130" marker-end="url(#ga)"/>
+          <path data-e="scene-frame" d="M126 130 L 236 130" marker-end="url(#ga)"/>
+          <path data-e="fprompt-frame" d="M126 200 C 190 200, 190 130, 236 130" marker-end="url(#ga)"/>
+          <path data-e="frame-video" d="M336 130 C 380 130, 380 200, 416 200" marker-end="url(#ga)"/>
+          <path data-e="vprompt-video" d="M336 270 C 380 270, 380 200, 416 200" marker-end="url(#ga)"/>
+          <path data-e="video-clip" d="M466 224 L 466 268" marker-end="url(#ga)"/>
+        </g>
+        <g class="node up" data-id="sheet" transform="translate(20,36)"><rect width="106" height="48" rx="3"/><text x="53" y="29" data-i="ln.sheet">三视图</text></g>
+        <g class="node up" data-id="scene" transform="translate(20,106)"><rect width="106" height="48" rx="3"/><text x="53" y="29" data-i="ln.scene">场景图</text></g>
+        <g class="node up" data-id="fprompt" transform="translate(20,176)"><rect width="106" height="48" rx="3"/><text x="53" y="29" data-i="ln.fprompt">首帧提示词</text></g>
+        <g class="node out" data-id="frame" transform="translate(236,106)"><rect width="100" height="48" rx="3"/><text x="50" y="29" data-i="ln.frame">首帧</text><g class="badge"><rect x="62" y="-12" width="52" height="20" rx="2"/><text x="88" y="2" data-i="ln.stale">已过期</text></g></g>
+        <g class="node up" data-id="vprompt" transform="translate(236,246)"><rect width="100" height="48" rx="3"/><text x="50" y="29" data-i="ln.vprompt">视频提示词</text></g>
+        <g class="node out" data-id="video" transform="translate(416,176)"><rect width="100" height="48" rx="3"/><text x="50" y="29" data-i="ln.video">视频</text><g class="badge"><rect x="62" y="-12" width="52" height="20" rx="2"/><text x="88" y="2" data-i="ln.stale">已过期</text></g></g>
+        <g class="node out" data-id="clip" transform="translate(416,270)"><rect width="100" height="48" rx="3"/><text x="50" y="29" data-i="ln.clip">成片片段</text><g class="badge"><rect x="62" y="-12" width="52" height="20" rx="2"/><text x="88" y="2" data-i="ln.stale">已过期</text></g></g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCREENS ============ -->
+<section class="screens" id="screens">
+  <div class="wrap">
+    <p class="kicker mono" data-reveal>06 · <span data-i="sc.k">界面</span></p>
+    <h2 class="h2 serif" data-reveal data-i="sc.title">工作台</h2>
+    <div class="tabs mono" id="tabs" data-reveal>
+      <button data-t="0" class="on" data-i="sc.t0">分镜</button><button data-t="1" data-i="sc.t1">预演</button><button data-t="2" data-i="sc.t2">版本</button><button data-t="3" data-i="sc.t3">时间线</button><button data-t="4" data-i="sc.t4">画布</button><button data-t="5" data-i="sc.t5">人物库</button><button data-t="6" data-i="sc.t6">场景库</button><button data-t="7" data-i="sc.t7">导出</button>
+    </div>
+    <div class="window" id="window" data-reveal>
+      <div class="win-bar"><i></i><i></i><i></i><span class="mono" id="winTitle">localhost:3000 · 分镜工作台</span></div>
+      <div class="win-body"><img id="winImg" src="assets/screens/01-storyboard.jpg" alt=""></div>
+    </div>
+    <p class="win-cap" id="winCap" data-reveal data-i="sc.c0">左栏分镜组与镜头缩略图，中栏镜头编辑器，右栏参考 · 首帧 · 视频三个阶段。首帧页顶上是预演截帧的进度条。</p>
+  </div>
+</section>
+
+<!-- ============ STACK ============ -->
+<section class="stack" id="stack">
+  <div class="stack-bg" aria-hidden="true"><img src="assets/studio.jpg" alt=""></div>
+  <div class="wrap">
+    <p class="kicker mono light" data-reveal>07 · <span data-i="st.k">技术</span></p>
+    <h2 class="h2 serif light" data-reveal data-i="st.title">站在这些肩膀上</h2>
+    <div class="chips mono">
+      <span data-reveal style="--i:0">Next.js 15</span><span data-reveal style="--i:1">React 19</span><span data-reveal style="--i:2">Prisma · SQLite</span><span data-reveal style="--i:3">fal.ai</span><span data-reveal style="--i:4">gpt-image-2.5</span><span data-reveal style="--i:5">MiniMax H3 Max Turbo</span><span data-reveal style="--i:6">Whisper</span><span data-reveal style="--i:7">ffmpeg + libass</span><span data-reveal style="--i:8">Docker + Caddy</span>
+    </div>
+    <p class="intro light" data-reveal data-i="st.body">单进程自带任务队列，一台机器就能跑。切供应商只改一个环境变量；每一次生成的成本都记在版本上。</p>
+  </div>
+</section>
+
+<!-- ============ START ============ -->
+<section class="start" id="start">
+  <div class="wrap start-grid">
+    <div>
+      <p class="kicker mono" data-reveal>08 · <span data-i="go.k">开始</span></p>
+      <h2 class="h2 serif" data-reveal data-i="go.title">五分钟跑起来</h2>
+      <p class="intro" data-reveal data-i="go.body">需要 ffmpeg / ffprobe（带 libass）。数据库与生成文件放在项目目录外，别让文件监听把生成当成源码变更。</p>
+      <div class="cta" data-reveal>
+        <a class="btn primary" href="https://github.com/sakurahello1/short-play" target="_blank" rel="noopener">GitHub →</a>
+        <a class="btn ghost" href="https://github.com/sakurahello1/short-play/blob/master/deploy/README.md" target="_blank" rel="noopener" data-i="go.deploy">部署到服务器</a>
+      </div>
+    </div>
+    <div class="code mono" data-reveal>
+      <div class="code-bar"><span>bash</span><button id="copy" type="button" data-i="go.copy">复制</button></div>
+<pre id="codeBlock">git clone https://github.com/sakurahello1/short-play.git
+cd short-play &amp;&amp; npm install
+cp .env.example .env      <span class="c"># FAL_KEY …</span>
+npx prisma db push
+npm run dev               <span class="c"># http://localhost:3000</span></pre>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div class="brand-foot serif">场记 <span class="mono">SLATE</span></div>
+    <p class="mono" data-i="foot.line">名字来自片场的「场记」：记板、对镜号、管连戏。这个工具干的也是这些事。</p>
+    <div class="foot-links mono">
+      <a href="https://github.com/sakurahello1/short-play" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/sakurahello1/short-play/blob/master/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      <button class="lang-foot" data-lang-toggle type="button">中文 / English</button>
+    </div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
